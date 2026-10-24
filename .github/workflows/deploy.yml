@@ -21,27 +21,41 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ !github.event.repository.is_template }}
     outputs:
-      build: ${{ steps.due.outputs.build }}
+      build: ${{ steps.pages.outputs.on == 'true' && steps.due.outputs.build || 'false' }}
     steps:
+      # A site deployed with the Vercel (or Netlify) button has no GitHub Pages: skip with a notice instead of failing
+      # on every push and every morning.
+      - name: Is GitHub Pages turned on?
+        id: pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/${{ github.repository }}/pages" --silent 2>/dev/null; then
+            echo "on=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "on=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=GitHub Pages is off::Nothing to deploy here. To publish this site on GitHub Pages, open Settings → Pages and set Source to GitHub Actions. If the site runs on Vercel or Netlify, ignore this."
+          fi
       - name: Checkout
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' && steps.pages.outputs.on == 'true'
         uses: actions/checkout@v4
       - name: Setup pnpm
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' && steps.pages.outputs.on == 'true'
         uses: pnpm/action-setup@v4
         with:
           version: 9
       - name: Setup Node
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' && steps.pages.outputs.on == 'true'
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: pnpm
       - name: Install dependencies
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' && steps.pages.outputs.on == 'true'
         run: pnpm install
       - name: Did a post become due? (scheduled runs only)
         id: due
+        if: steps.pages.outputs.on == 'true'
         run: |
           if [ "${{ github.event_name }}" != "schedule" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
           set +e

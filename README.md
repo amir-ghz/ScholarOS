@@ -210,6 +210,13 @@ public Vercel Blob store, and asks for three values:
 | `CRON_SECRET`    | another random text of 32+ characters                                                            |
 | `ADMIN_PASSWORD` | the password you will sign in with (12+ characters)                                              |
 
+**It runs on Vercel's free Hobby plan.** Sign up at [vercel.com/signup](https://vercel.com/signup) and choose
+**Hobby** before you click the button, then pick that Hobby account under **Vercel Team** instead of creating a team
+(a team is a Pro feature). Nothing here needs Pro: the database (Neon) and Blob have free tiers, the nightly job runs
+once a day, and no function runs longer than Hobby's 5 minutes. Hobby is for personal, non-commercial sites. The GitHub
+Pages workflow in your new repository skips itself (with a notice) while Pages is off, so a Vercel site gets no
+failed-run emails.
+
 The first build sets everything up: it creates the tables, copies the example content into the database, uploads its
 images to Blob and creates your admin account. Sign in at `https://<your-project>.vercel.app/admin/login` with your
 GitHub username (lowercase) and `ADMIN_PASSWORD`, then make the site yours from the admin. Edits go live on the next
