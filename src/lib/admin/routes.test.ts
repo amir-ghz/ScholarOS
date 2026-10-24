@@ -384,7 +384,9 @@ test('unexpected errors answer a generic 500 and are logged', async () => {
       }),
     );
     assert.equal(res.status, 500);
-    assert.deepEqual(await res.json(), { error: 'Internal error' });
+    assert.deepEqual(await res.json(), {
+      error: 'Something went wrong on the server. Try again; if it keeps happening, the server log says why.',
+    });
   } finally {
     console.error = realError;
   }

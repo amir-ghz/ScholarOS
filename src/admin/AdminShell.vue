@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import { api, dismissToast, session, toasts, type Toast } from './api';
+import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, ref } from 'vue';
+import { api, dismissToast, report, session, toasts, type Toast } from './api';
 import { vDialog } from './dialog';
 import type { AdminCtx } from './types';
 
@@ -151,6 +151,7 @@ onBeforeUnmount(() => {
   removeEventListener('scroll', onScroll);
   removeEventListener('keydown', onShortcut);
   removeEventListener('beforeunload', onLeave);
+  removeEventListener('unhandledrejection', onUnhandled);
   heights.disconnect();
 });
 const regions = computed(() => [
@@ -163,10 +164,35 @@ function runAction(t: Toast) {
   dismissToast(t.id);
 }
 
+/** A toast's text as plain runs and `code` runs (a command to copy, e.g. `pnpm setup:python`). */
+const runs = (text: string) => text.split(/`([^`]+)`/).map((part, i) => ({ part, code: i % 2 === 1 }));
+const copied = ref('');
+async function copy(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    copied.value = text;
+    setTimeout(() => copied.value === text && (copied.value = ''), 2000);
+  } catch {
+    // No clipboard (an insecure origin, a denied permission): the text stays selectable.
+  }
+}
+
+// A bug in a screen or a promise nobody caught still ends in a toast, not a silent console line.
+onErrorCaptured((e) => {
+  console.error(e); // eslint-disable-line no-console
+  report(e);
+  return false;
+});
+function onUnhandled(e: PromiseRejectionEvent) {
+  if ((e.reason as Error | undefined)?.name === 'AbortError') return;
+  report(e.reason);
+}
+
 onMounted(async () => {
   addEventListener('scroll', onScroll, { passive: true });
   addEventListener('keydown', onShortcut);
   addEventListener('beforeunload', onLeave);
+  addEventListener('unhandledrejection', onUnhandled);
   if (head.value) heights.observe(head.value);
   try {
     const { capabilities, career } = await api<{ capabilities: { error?: string }; career?: { ready: number } }>('me');
@@ -301,7 +327,29 @@ async function signOut() {
     <div class="adm-toasts">
       <div v-for="r in regions" :key="r.key" class="adm-toast-region" :aria-live="r.live" aria-atomic="false">
         <div v-for="t in r.list" :key="t.id" class="adm-toast" :class="{ 'adm-toast-error': t.error }">
-          <span class="adm-toast-text">{{ t.text }}</span>
+          <svg v-if="t.error" class="adm-toast-icon" viewBox="0 0 20 20" width="20" height="20" aria-hidden="true">
+            <circle cx="10" cy="10" r="8.25" fill="none" stroke="currentColor" stroke-width="1.5" />
+            <path d="M10 5.75v5.5" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" />
+            <circle cx="10" cy="14.25" r="1.1" fill="currentColor" />
+          </svg>
+          <span class="adm-toast-text">
+            <template v-for="(r2, i) in runs(t.text)" :key="i">
+              <span v-if="r2.code" class="adm-toast-code">
+                <code>{{ r2.part }}</code>
+                <button type="button" class="adm-toast-copy" @click="copy(r2.part)">
+                  {{ copied === r2.part ? 'Copied' : 'Copy' }}
+                </button>
+              </span>
+              <template v-else>{{ r2.part }}</template>
+            </template>
+            <details v-if="t.detail" class="adm-toast-detail">
+              <summary>Technical details</summary>
+              <pre>{{ t.detail }}</pre>
+              <button type="button" class="adm-toast-copy" @click="copy(t.detail)">
+                {{ copied === t.detail ? 'Copied' : 'Copy details' }}
+              </button>
+            </details>
+          </span>
           <span class="adm-toast-actions">
             <a v-if="t.href" :href="t.href" target="_blank" rel="noopener">View commit</a>
             <button v-if="t.action" type="button" class="adm-btn adm-btn-small" @click="runAction(t)">

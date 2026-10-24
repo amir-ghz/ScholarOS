@@ -1420,12 +1420,96 @@ span.adm-cite {
   border-radius: 6px;
   box-shadow: var(--adm-float);
   font-size: 14px;
+  animation: adm-toast-in 180ms ease-out;
 }
+@keyframes adm-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+/* An error is a Paper card with a Danger edge and marker: room for the fix, a command to copy and the details. */
 .adm-toast-error {
-  background: var(--adm-danger);
+  align-items: flex-start;
+  background: var(--adm-paper);
+  color: var(--adm-ink);
+  border: 1px solid var(--adm-danger-rule);
+  border-inline-start: 4px solid var(--adm-danger);
+  padding-block: 12px;
+  padding-inline: 12px 8px;
+  line-height: 1.45;
+}
+.adm-toast-icon {
+  flex: none;
+  color: var(--adm-danger);
+  margin-block-start: 1px;
 }
 .adm-toast-text {
   flex: 1 1 12rem;
+  min-width: 0;
+}
+.adm-toast-error .adm-toast-actions {
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+.adm .adm-toast-error a,
+.adm-toast-error .adm-toast-close {
+  color: var(--adm-accent);
+}
+.adm .adm-toast-error :focus-visible {
+  outline-color: var(--adm-accent);
+}
+.adm-toast-code {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline: 2px;
+  padding: 1px 2px 1px 6px;
+  border: 1px solid var(--adm-rule);
+  border-radius: 4px;
+  background: var(--adm-tint);
+  white-space: nowrap;
+}
+.adm-toast-code code {
+  font-size: 13px;
+}
+.adm-toast-copy {
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--adm-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.adm-toast-copy:hover {
+  background: var(--adm-hover);
+}
+.adm-toast-detail {
+  margin-block-start: 8px;
+  font-size: 13px;
+}
+.adm-toast-detail summary {
+  color: var(--adm-muted);
+  cursor: pointer;
+}
+.adm-toast-detail pre {
+  max-height: 12rem;
+  overflow: auto;
+  margin: 6px 0 4px;
+  padding: 8px;
+  border-radius: 4px;
+  background: var(--adm-tint);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (prefers-reduced-motion: reduce) {
+  .adm-toast {
+    animation: none;
+  }
 }
 .adm-toast-actions {
   display: flex;

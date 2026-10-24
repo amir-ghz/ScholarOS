@@ -49,7 +49,10 @@ function errorResponse(e: unknown): Response {
   if (e instanceof AiError) return json({ error: e.message }, 502);
   // eslint-disable-next-line no-console
   console.error(e);
-  return json({ error: 'Internal error' }, 500);
+  return json(
+    { error: 'Something went wrong on the server. Try again; if it keeps happening, the server log says why.' },
+    500,
+  );
 }
 
 type Handler = (ctx: APIContext, store: ContentStore, user: SessionUser) => Promise<Response>;
