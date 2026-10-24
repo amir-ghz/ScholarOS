@@ -217,6 +217,19 @@ once a day, and no function runs longer than Hobby's 5 minutes. Hobby is for per
 Pages workflow in your new repository skips itself (with a notice) while Pages is off, so a Vercel site gets no
 failed-run emails.
 
+**If the button doesn't go through:**
+
+- **Create does nothing, or the repository name is taken.** GitHub names ignore case, so `scholaros-site` clashes with
+  a repository you made with an earlier click, and `scholaros` with a ScholarOS fork. Type another name in **Private
+  Repository Name**.
+- **It asks you to create a team or start a Pro trial.** Pick your Hobby account under **Vercel Team** instead (sign
+  up for Hobby first if it isn't listed).
+- **The build failed with "no Blob store is connected".** In the project open **Storage**, connect a Blob store with
+  public access, then **Redeploy**.
+- **The login page says "This site isn't fully set up yet".** It lists what is missing and how to fix it. Most often
+  Neon wasn't created: **Storage** → connect a Neon (Postgres) database to all environments → **Redeploy**. The build
+  log starts with the same list.
+
 The first build sets everything up: it creates the tables, copies the example content into the database, uploads its
 images to Blob and creates your admin account. Sign in at `https://<your-project>.vercel.app/admin/login` with your
 GitHub username (lowercase) and `ADMIN_PASSWORD`, then make the site yours from the admin. Edits go live on the next

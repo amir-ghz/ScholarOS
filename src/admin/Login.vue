@@ -13,7 +13,11 @@ const props = defineProps<{
   error: string;
   firstRun?: '' | 'create' | 'explain';
   homeHref?: string;
+  /** What the deployment still lacks (src/lib/deploy-check.ts): shown first, since sign-in may not work until fixed. */
+  setup?: { level: 'error' | 'warning'; text: string }[];
 }>();
+/** A sentence as plain runs and `code` runs. */
+const runs = (text: string) => text.split(/`([^`]+)`/).map((part, i) => ({ part, code: i % 2 === 1 }));
 const creating = ref(props.firstRun === 'create');
 const name = ref('');
 const username = ref('');
@@ -68,6 +72,18 @@ function submit() {
         <h1>{{ siteName || 'Your site' }}</h1>
         <p class="adm-muted">{{ creating ? 'Create your account' : 'Site admin' }}</p>
       </header>
+
+      <section v-if="setup?.length" class="adm-login-setup" role="alert">
+        <h2>This site isn’t fully set up yet</h2>
+        <ul>
+          <li v-for="p in setup" :key="p.text" :class="`is-${p.level}`">
+            <template v-for="(r, i) in runs(p.text)" :key="i">
+              <code v-if="r.code">{{ r.part }}</code>
+              <template v-else>{{ r.part }}</template>
+            </template>
+          </li>
+        </ul>
+      </section>
 
       <p v-if="creating" class="adm-login-lead">
         This site has no account yet. The one you create now is the owner: it signs in here, sees every screen, and can

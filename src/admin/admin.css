@@ -1774,6 +1774,35 @@ span.adm-cite {
   color: var(--adm-danger);
   font-size: 13px;
 }
+.adm-login-setup {
+  padding: 12px 14px;
+  border: 1px solid var(--adm-danger-rule);
+  border-inline-start: 4px solid var(--adm-danger);
+  border-radius: 6px;
+  background: var(--adm-paper);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.adm-login-setup h2 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.adm-login-setup ul {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adm-login-setup code {
+  white-space: nowrap;
+}
+.adm-login-setup .is-warning::marker {
+  color: var(--adm-muted);
+}
+.adm-login-setup .is-error::marker {
+  color: var(--adm-danger);
+}
 .adm-login-submit {
   justify-content: center;
   width: 100%;
