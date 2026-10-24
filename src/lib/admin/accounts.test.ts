@@ -7,7 +7,9 @@ import {
   MigrationMissingError,
   changeOwnPassword,
   createAccount,
+  createFirstAccount,
   deleteAccount,
+  hasAccounts,
   listAccounts,
   normalizeUsername,
   resetPassword,
@@ -132,4 +134,17 @@ test('a password reset lifts the sign-in lockout', async () => {
   assert.deepEqual(await signIn(sql, 'jane', PW, t0), { ok: false, reason: 'throttled' });
   await resetPassword(sql, 'jane', 'a brand new password');
   assert.equal((await signIn(sql, 'jane', 'a brand new password', t0)).ok, true);
+});
+
+test('the first account: only while there is none, and two at once make one', async () => {
+  assert.equal(await hasAccounts(sql), false);
+  const results = await Promise.allSettled([
+    createFirstAccount(sql, 'Jane', 'Jane Smith', PW),
+    createFirstAccount(sql, 'bob', '', PW),
+  ]);
+  assert.equal(results.filter((r) => r.status === 'fulfilled').length, 1);
+  assert.equal(await hasAccounts(sql), true);
+  assert.equal((await listAccounts(sql)).length, 1);
+  await assert.rejects(createFirstAccount(sql, 'carol', '', PW), /already has an account/);
+  await assert.rejects(createFirstAccount(sql, 'dave', '', 'short'), /12–200/);
 });

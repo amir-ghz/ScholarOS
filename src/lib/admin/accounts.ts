@@ -68,6 +68,38 @@ export async function createAccount(sql: Sql, username: unknown, name: unknown, 
   return { username: user, name: displayName(name, user), created_at: new Date(rows[0].created_at).toISOString() };
 }
 
+/** Whether any password account exists: none means the login screen offers or explains the first one. */
+export async function hasAccounts(sql: Sql): Promise<boolean> {
+  const [row] = await tables(() => sql<{ any: boolean }>`select exists (select 1 from admin_users) as any`);
+  return !!row?.any;
+}
+
+/**
+ * The first account, only while there is none: the table is locked for the check and the insert, so two sign-ups at
+ * the same moment can't both become the first. 409 once any account exists.
+ */
+export async function createFirstAccount(
+  sql: Sql,
+  username: unknown,
+  name: unknown,
+  password: unknown,
+): Promise<Account> {
+  const user = normalizeUsername(username);
+  const hash = await hashPassword(assertPasswordPolicy(password));
+  return tables(() =>
+    sql.begin(async (tx) => {
+      await tx`lock table admin_users in share row exclusive mode`;
+      const [{ any }] = await tx<{ any: boolean }>`select exists (select 1 from admin_users) as any`;
+      if (any) throw new HttpError(409, 'This site already has an account. Sign in instead.');
+      const [row] = await tx<{ created_at: Date }>`
+        insert into admin_users (username, name, password_hash, session_version)
+        values (${user}, ${displayName(name, user)}, ${hash}, 1 + floor(random() * 1000000000)::int)
+        returning created_at`;
+      return { username: user, name: displayName(name, user), created_at: new Date(row.created_at).toISOString() };
+    }),
+  );
+}
+
 /** New password + a new session version: every existing session of the account ends, and its lockout lifts. */
 export async function resetPassword(sql: Sql, username: string, password: unknown): Promise<void> {
   const user = normalizeUsername(username);

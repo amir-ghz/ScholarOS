@@ -27,7 +27,8 @@ import yaml from 'js-yaml';
 import Favicon from '../../components/astro/Favicon.astro';
 import { getSiteConfig } from '../../lib/config';
 import { loadSiteFiles } from '../../lib/content/context';
-import { getSql } from '../../lib/db';
+import { getSql, isLocalDatabase } from '../../lib/db';
+import { hasAccounts } from '../../lib/admin/accounts';
 import { getMode } from '../../lib/mode';
 import type { SiteConfig } from '../../lib/types';
 import { readConfig } from '../../lib/admin/content';
@@ -124,6 +125,16 @@ const error = Astro.url.searchParams.get('error');
 const githubLogin = mode !== 'postgres' || !!(process.env.GITHUB_CLIENT_ID && process.env.GITHUB_CLIENT_SECRET);
 const loginError = error ? (Object.hasOwn(LOGIN_ERRORS, error) ? LOGIN_ERRORS[error] : LOGIN_ERRORS.expired) : '';
 if (screen === 'login' && error === 'denied') Astro.response.status = 403;
+/**
+ * No password account yet: on `pnpm dev`'s local database the login screen creates the first (the owner); on a
+ * deployment it says how to, since an open first-come sign-up would hand the site to whoever finds it first.
+ */
+const firstRun =
+  screen === 'login' && mode === 'postgres' && !(await hasAccounts(getSql()).catch(() => true))
+    ? isLocalDatabase()
+      ? 'create'
+      : 'explain'
+    : '';
 ---
 
 <!doctype html>
@@ -150,6 +161,8 @@ if (screen === 'login' && error === 'denied') Astro.response.status = 403;
         password={mode === 'postgres'}
         github={githubLogin}
         error={loginError}
+        firstRun={firstRun}
+        homeHref={import.meta.env.BASE_URL}
       />
     )}
     {screen === 'media' && <Media client:only="vue" ctx={ctx} />}

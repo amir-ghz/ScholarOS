@@ -251,6 +251,9 @@ cd YOUR_REPO
 # Install dependencies
 pnpm install
 
+# Once: a Python 3.10+ in .venv for the CV PDF and the Google Scholar sync (uses uv when installed)
+pnpm setup:python
+
 # Start the full site and admin on a local database, with hot-reload
 pnpm dev
 ```
@@ -261,9 +264,16 @@ Your site will be running at `http://localhost:4321`, with the admin at `http://
 Blob account. It is Postgres mode on [PGlite](https://pglite.dev), an in-process Postgres kept in `.data/`
 (gitignored) along with the uploads. The first run copies the repo's content into the database, asks for a username
 and a password (12+ characters) for the site owner, and saves a `SESSION_SECRET` into `.env.local` (saved AI keys are
-encrypted with it, so keep it). Without a terminal to ask in, it prints the command to run instead:
-`pnpm admin:create-user <username>`, with the server stopped. The nightly jobs don't run on their own locally; use the
-admin's Run buttons.
+encrypted with it, so keep it). Without a terminal to ask in, open `http://localhost:4321/admin/login`: while the
+local database has no account it reads **Create your account**, and the account made there is the owner and is signed
+in at once (`pnpm admin:create-user <username>`, with the server stopped, works too). This sign-up exists only on the
+local database: on a deployment the first visitor would claim the site, so there the login screen says how to create
+the first account instead. Everyone after the owner is added under **Users**. The nightly jobs don't run on their own
+locally; use the admin's Run buttons.
+
+CV PDFs run RenderCV in Python: the PYTHON environment variable, else `.venv` from `pnpm setup:python`, else `python3`.
+When that Python is missing, too old or lacks a package, the admin says so in one sentence with the command that fixes
+it.
 
 From then on the database is the content: edits made in the admin show at once, and edits to the repo's files don't
 show. To start over from the repo's files, stop the server and delete `.data/`.
@@ -831,7 +841,7 @@ pdf:
 
 A private job search inside the admin. Each night it gathers postings from the sources you turn on, scores them against your CV and preferences, and lists the best matches. On a posting, **Draft CV and letter** (later **Regenerate both**) writes a tailored CV (rendered to PDF in one of your [CV styles](#cv-styles)), a cover letter and, for Greenhouse forms, proposed answers. **Pre-fill the application** then fills in the real form and stops before Submit. Nothing is sent until you approve it.
 
-**Owner only, Postgres mode only.** Only the owner sees the screens, the data and the source keys. The owner is the `owner` entry in `config/site.yml`; when that is empty, it is the first `adminUsers` entry. Under `pnpm dev` it is the `owner` entry in the local database's `site.yml`, which the first run sets to the account it creates (applied when the server starts). An entry is a GitHub login or `password:<username>`, matched like `publishers`. Anyone else gets a 404, so they cannot tell the feature exists. In static and git mode every job-search screen and route answers 404 and the nav link is hidden (CV styles keep working in all modes).
+**Owner only, Postgres mode only.** Only the owner sees the screens, the data and the source keys. The owner is the `owner` entry in `config/site.yml`; when that is empty, it is the first `adminUsers` entry. Under `pnpm dev` it is the `owner` entry in the local database's `site.yml`, which the first run sets to the account it creates (at once when the account is made on the login screen, otherwise when the server starts). An entry is a GitHub login or `password:<username>`, matched like `publishers`. Anyone else gets a 404, so they cannot tell the feature exists. In static and git mode every job-search screen and route answers 404 and the nav link is hidden (CV styles keep working in all modes).
 
 **Sources.** Turn them on under **Job search → Settings → Sources**. A source that needs a key you have not saved reports `skipped: no <KEY>`; that is not a failure. Keys live in the `secrets` table, never in content or the git backup.
 

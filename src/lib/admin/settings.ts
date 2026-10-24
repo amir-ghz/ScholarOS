@@ -50,9 +50,20 @@ export function loadAdminSettings(root = process.cwd()): AdminSettings {
 }
 
 let loaded: AdminSettings | undefined;
+let firstOwner = '';
 
 export function adminSettings(): AdminSettings {
-  return typeof __SCHOLAROS_ADMIN__ !== 'undefined' ? __SCHOLAROS_ADMIN__ : (loaded ??= loadAdminSettings());
+  const settings = typeof __SCHOLAROS_ADMIN__ !== 'undefined' ? __SCHOLAROS_ADMIN__ : (loaded ??= loadAdminSettings());
+  return firstOwner ? { ...settings, owner: firstOwner } : settings;
+}
+
+/**
+ * The owner named by `pnpm dev`'s first-run sign-up. It wins over site.yml as SCHOLAROS_OWNER does: the settings were
+ * read when the server started, before the account existed, and the next start sets SCHOLAROS_OWNER from the local
+ * database's site.yml (scripts/dev-local.ts).
+ */
+export function adoptFirstOwner(owner: string): void {
+  firstOwner = owner;
 }
 
 /** The GitHub login an adminUsers entry names: entries may be usernames, @usernames or https://github.com/<user> URLs. */

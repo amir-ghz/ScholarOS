@@ -4,6 +4,7 @@ import path from 'node:path';
 import { parseEnv } from 'node:util';
 import yaml from 'js-yaml';
 import { createAccount } from './admin/accounts';
+import { loadAdminSettings } from './admin/settings';
 import type { Sql } from './db';
 import { seedContent } from './db-bootstrap';
 import { migrate } from './db-migrate';
@@ -44,7 +45,7 @@ export async function setUpLocal(
     done.push(`admin account created: ${(await createAccount(sql, username, '', password)).username}`);
   } else if (accounts === 0) {
     done.push(
-      'no admin account: stop the server (Ctrl-C), run `pnpm admin:create-user <username>`, then `pnpm dev` again',
+      `no admin account yet: open /${loadAdminSettings(root).adminPath}/login to create yours (or \`pnpm admin:create-user <username>\`)`,
     );
   }
   return { done, owner: await ensureOwner(sql, done) };
@@ -53,7 +54,7 @@ export async function setUpLocal(
 const SITE = 'config/site.yml';
 
 /** site.yml's `owner`, or else the oldest account, written into site.yml as `password:<username>`. */
-async function ensureOwner(sql: Sql, done: string[]): Promise<string> {
+export async function ensureOwner(sql: Sql, done: string[] = []): Promise<string> {
   const [site] = await sql<{ content: string }>`select content from documents where path = ${SITE}`;
   if (!site) return '';
   const named = (yaml.load(site.content) as { owner?: unknown } | null)?.owner;
