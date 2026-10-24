@@ -12,6 +12,8 @@ export default [
       'dist-*/',
       '.vercel/',
       'node_modules/',
+      '.venv/',
+      '.data/',
       '.astro/',
       'src/content/',
       'src/data/',
