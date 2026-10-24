@@ -2,7 +2,8 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { del, put } from '@vercel/blob';
-import { getSql } from '../db';
+import { getSql, isLocalDatabase } from '../db';
+import { localUploads } from '../local-uploads';
 import { updatePosting } from './db';
 
 /** What putCareerPdf calls outside the database; tests pass fakes. */
@@ -33,6 +34,15 @@ const folderDeps = (dir: string): BlobDeps => ({
   del: async (url) => (url.startsWith('file:') ? rm(fileURLToPath(url), { force: true }) : undefined),
 });
 
+/** `pnpm dev`: public/uploads, with a timestamp for the uniqueness Blob's random suffix gives. */
+function uploadsDeps(): BlobDeps {
+  const uploads = localUploads();
+  return {
+    put: (pathname, body) => uploads.put(pathname.replace(/(\.\w+)?$/, `-${Date.now()}$1`), body),
+    del: uploads.del,
+  };
+}
+
 let testDeps: BlobDeps | null = null;
 
 export function setBlobForTests(deps: BlobDeps | null): void {
@@ -43,7 +53,7 @@ function deps(): BlobDeps {
   const dir = process.env.CAREER_PDF_DIR;
   // Not `!VERCEL`: `astro dev` (and so dev:postgres) sets VERCEL=1 for the admin, the one place this is for.
   const local = dir && !process.env.VERCEL_ENV && process.env.NODE_ENV !== 'production';
-  return testDeps ?? (local ? folderDeps(dir) : blobDeps);
+  return testDeps ?? (local ? folderDeps(dir) : isLocalDatabase() ? uploadsDeps() : blobDeps);
 }
 
 /**

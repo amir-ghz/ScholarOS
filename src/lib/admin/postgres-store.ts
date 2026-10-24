@@ -2,7 +2,8 @@ import { del, put } from '@vercel/blob';
 import { dangerouslyDeleteByTag } from '@vercel/functions';
 import { tagsForPaths } from '../cache-tags';
 import { getBytes } from '../career/sources/http';
-import { isUnreachable, type Sql } from '../db';
+import { isLocalDatabase, isUnreachable, type Sql } from '../db';
+import { localUploads } from '../local-uploads';
 import { MAX_UPLOAD } from './media';
 import { PathError } from './paths';
 import {
@@ -50,6 +51,9 @@ const defaultDeps: Required<PostgresDeps> = {
   get: (url) => getBytes(url, { maxBytes: MAX_UPLOAD }),
 };
 
+/** `pnpm dev`: files in public/uploads, and no CDN to purge. */
+const localDeps = (): Required<PostgresDeps> => ({ purge: async () => {}, ...localUploads() });
+
 const blobFailure = (e: unknown) =>
   new UpstreamError(`Image storage (Vercel Blob) failed: ${(e as Error).message}`, 502);
 
@@ -61,7 +65,7 @@ export class PostgresStore implements ContentStore {
   constructor(
     private sql: Sql,
     private author?: Author,
-    private deps: PostgresDeps = defaultDeps,
+    private deps: PostgresDeps = isLocalDatabase() ? localDeps() : defaultDeps,
   ) {}
 
   /** "Can't reach the database" becomes a 503 the admin shows as a banner; other errors pass through. */

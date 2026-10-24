@@ -92,8 +92,9 @@ const issues = computed(() =>
   posting.value?.draftState === 'needs-review' ? ((posting.value.draftIssues as ReviewIssue[] | null) ?? []) : [],
 );
 const pdf = computed(() => httpUrl(posting.value?.cvPdfUrl));
-/** Only our own Blob store's PDFs are embedded; any other URL is just a link. */
+/** Only our own Blob store's PDFs (or `pnpm dev`'s /uploads/) are embedded; any other URL is just a link. */
 const embed = computed(() => {
+  if (pdf.value?.startsWith('/uploads/')) return pdf.value;
   try {
     const u = new URL(pdf.value ?? '');
     return u.protocol === 'https:' && u.hostname.endsWith('.public.blob.vercel-storage.com') ? u.href : null;

@@ -50,3 +50,7 @@ src/pages/.well-known/workflow/
 .vercel
 .env*
 !.env.example
+
+# pnpm dev: the local database and its uploads
+.data/
+public/uploads/

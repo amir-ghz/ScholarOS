@@ -13,8 +13,10 @@ test('evidenceLabel shows a 0-based ref as a 1-based entry and leaves anything e
   assert.equal(evidenceLabel('the Acme job'), 'the Acme job');
 });
 
-test('httpUrl accepts http(s) only', () => {
+test("httpUrl accepts http(s) and this site's /uploads/ only", () => {
   assert.equal(httpUrl('https://x.test/a'), 'https://x.test/a');
+  assert.equal(httpUrl('/uploads/career/1-2.pdf'), '/uploads/career/1-2.pdf');
+  assert.equal(httpUrl('/other/a.pdf'), null);
   assert.equal(httpUrl('javascript:alert(1)'), null);
   assert.equal(httpUrl('nope'), null);
   assert.equal(httpUrl(null), null);

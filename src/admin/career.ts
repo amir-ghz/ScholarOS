@@ -72,10 +72,10 @@ export function coverageLine(reqs: Requirement[]): string {
   );
 }
 
-/** The URL when it is http(s), else null: only those become links. */
+/** The URL when it is http(s) or a `pnpm dev` upload (/uploads/…, this site's), else null: only those become links. */
 export function httpUrl(u: string | null | undefined): string | null {
   try {
-    return u && /^https?:$/.test(new URL(u).protocol) ? u : null;
+    return u && (/^\/uploads\/(?!\/)/.test(u) || /^https?:$/.test(new URL(u).protocol)) ? u : null;
   } catch {
     return null;
   }
