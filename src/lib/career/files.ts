@@ -34,7 +34,7 @@ const folderDeps = (dir: string): BlobDeps => ({
   del: async (url) => (url.startsWith('file:') ? rm(fileURLToPath(url), { force: true }) : undefined),
 });
 
-/** `pnpm dev`: public/uploads, with a timestamp for the uniqueness Blob's random suffix gives. */
+/** `pnpm dev`: .data/uploads, with a timestamp for the uniqueness Blob's random suffix gives. */
 function uploadsDeps(): BlobDeps {
   const uploads = localUploads();
   return {

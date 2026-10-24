@@ -3,9 +3,12 @@ import path from 'node:path';
 
 const PREFIX = '/uploads/';
 
-/** `pnpm dev`'s stand-in for Vercel Blob: files under public/uploads, which `astro dev` serves at /uploads/. */
+/**
+ * `pnpm dev`'s stand-in for Vercel Blob: files under .data/uploads, which the middleware serves at /uploads/. Not in
+ * public/, which every build copies whole.
+ */
 export function localUploads(root = process.cwd()) {
-  const dir = path.resolve(root, 'public', 'uploads');
+  const dir = path.resolve(root, '.data', 'uploads');
   const file = (pathname: string) => {
     const out = path.resolve(dir, pathname);
     if (!out.startsWith(dir + path.sep)) throw new Error(`Not an upload path: ${pathname}`);

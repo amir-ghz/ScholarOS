@@ -77,7 +77,6 @@ export const onRequest: MiddlewareHandler = async (ctx, next) => {
   }
   const { pathname } = ctx.url;
   if (ctx.isPrerendered) return isPageOn(pathname) ? next() : notFound();
-  // `astro dev` serves a new file in public/ only once its watcher sees it: the admin's preview of an upload comes first.
   if (pathname.startsWith('/uploads/') && isLocalDatabase()) {
     const bytes = await localUploads()
       .get(pathname)

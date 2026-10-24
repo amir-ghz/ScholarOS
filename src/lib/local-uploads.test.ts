@@ -5,19 +5,19 @@ import os from 'node:os';
 import path from 'node:path';
 import { localUploads } from './local-uploads';
 
-test('localUploads: put writes under public/uploads and answers its /uploads/ URL; get reads it, del removes it', async () => {
+test('localUploads: put writes under .data/uploads and answers its /uploads/ URL; get reads it, del removes it', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scholaros-uploads-'));
   const uploads = localUploads(root);
   const { url } = await uploads.put('career/7/a b.png', Buffer.from('png'));
   assert.equal(url, '/uploads/career/7/a%20b.png');
-  const file = path.join(root, 'public/uploads/career/7/a b.png');
+  const file = path.join(root, '.data/uploads/career/7/a b.png');
   assert.equal(fs.readFileSync(file, 'utf8'), 'png');
   assert.equal(Buffer.from(await uploads.get(url)).toString(), 'png');
   await uploads.del(url);
   assert.equal(fs.existsSync(file), false);
 });
 
-test('localUploads: nothing outside public/uploads is written, read or deleted', async () => {
+test('localUploads: nothing outside .data/uploads is written, read or deleted', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scholaros-uploads-'));
   fs.writeFileSync(path.join(root, 'keep.txt'), 'x');
   const uploads = localUploads(root);

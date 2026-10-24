@@ -32,6 +32,8 @@ function filePath(src: ImageMetadata | string): string | null {
     return path.join(process.cwd(), fsPath.slice(fsPath.lastIndexOf('/src/') + 1));
   }
   if (BLOB.test(src)) return src;
+  // `pnpm dev` keeps uploads in .data/uploads (src/lib/local-uploads.ts).
+  if (src.startsWith('/uploads/')) return path.join(process.cwd(), '.data', src);
   if (/^https?:\/\//.test(src) || !src.startsWith('/')) return null;
   return path.join(process.cwd(), 'public', src);
 }

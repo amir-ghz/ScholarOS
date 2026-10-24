@@ -1,6 +1,6 @@
 #!/usr/bin/env tsx
 /**
- * pnpm dev — `astro dev` in Postgres mode on a local PGlite database in .data/db, uploads in public/uploads: every
+ * pnpm dev — `astro dev` in Postgres mode on a local PGlite database in .data/db, uploads in .data/uploads: every
  * feature, no Neon, Vercel or Blob account. The first run copies the repo's content in and asks for the owner account.
  */
 import { spawn } from 'node:child_process';

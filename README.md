@@ -258,10 +258,10 @@ pnpm dev
 Your site will be running at `http://localhost:4321`, with the admin at `http://localhost:4321/admin`.
 
 `pnpm dev` runs every feature (the admin, Reading, the job search, the vault and public notes) with no Neon, Vercel or
-Blob account. It is Postgres mode on [PGlite](https://pglite.dev), an in-process Postgres kept in `.data/`; uploads go
-to `public/uploads/`. Both folders are gitignored. The first run copies the repo's content into the database, asks
-for a username and a password (12+ characters) for the site owner, and saves a `SESSION_SECRET` into `.env.local`
-(saved AI keys are encrypted with it, so keep it). Without a terminal to ask in, it prints the command to run instead:
+Blob account. It is Postgres mode on [PGlite](https://pglite.dev), an in-process Postgres kept in `.data/`
+(gitignored) along with the uploads. The first run copies the repo's content into the database, asks for a username
+and a password (12+ characters) for the site owner, and saves a `SESSION_SECRET` into `.env.local` (saved AI keys are
+encrypted with it, so keep it). Without a terminal to ask in, it prints the command to run instead:
 `pnpm admin:create-user <username>`, with the server stopped. The nightly jobs don't run on their own locally; use the
 admin's Run buttons.
 

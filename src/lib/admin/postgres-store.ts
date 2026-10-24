@@ -51,7 +51,7 @@ const defaultDeps: Required<PostgresDeps> = {
   get: (url) => getBytes(url, { maxBytes: MAX_UPLOAD }),
 };
 
-/** `pnpm dev`: files in public/uploads, and no CDN to purge. */
+/** `pnpm dev`: files in .data/uploads, and no CDN to purge. */
 const localDeps = (): Required<PostgresDeps> => ({ purge: async () => {}, ...localUploads() });
 
 const blobFailure = (e: unknown) =>

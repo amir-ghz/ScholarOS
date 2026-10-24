@@ -8,7 +8,7 @@ import { signIn } from './admin/accounts';
 import { ensureSessionSecret, setUpLocal } from './local-dev';
 import { pgliteSql } from './pglite-sql';
 
-/** A copy of the repo's content, so the seeded images land in a temp public/uploads. */
+/** A copy of the repo's content, so the seeded images land in a temp .data/uploads. */
 function repoCopy(): string {
   const repo = path.resolve(import.meta.dirname, '../..');
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'scholaros-local-'));
@@ -37,7 +37,7 @@ test('setUpLocal: an empty database gets tables, the content, the asked-for acco
   assert.equal(fs.readFileSync(path.join(root, 'config/site.yml'), 'utf8').includes("owner: 'password:jane'"), false);
   const [media] = await sql<{ url: string }>`select url from media order by url limit 1`;
   assert.match(media.url, /^\/uploads\//);
-  assert.ok(fs.existsSync(path.join(root, 'public', decodeURIComponent(media.url))), 'seeded images are on disk');
+  assert.ok(fs.existsSync(path.join(root, '.data', decodeURIComponent(media.url))), 'seeded images are on disk');
 
   await sql`update documents set content = content || '# edited' where path = 'config/site.yml'`;
   const second = await setUpLocal(sql, root, ask);
