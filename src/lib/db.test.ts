@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isUnreachable } from './db';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { connect, getSql, isUnreachable, localDatabaseUrl } from './db';
 import { migrate } from './db-migrate';
 import { pgliteSql } from './pglite-sql';
 
@@ -94,4 +97,34 @@ test('pgliteSql: array params, and a transaction handle without begin, as in pos
     await tx`delete from documents where path = ${'a'}`;
   });
   assert.equal((await sql`select * from documents`).length, 2);
+});
+
+test('getSql: a pglite: DATABASE_URL is PGlite in that folder, whose data survives a close and reopen', async (t) => {
+  const folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'scholaros-db-')), 'db');
+  const before = process.env.DATABASE_URL;
+  process.env.DATABASE_URL = localDatabaseUrl(folder);
+  t.after(() => {
+    if (before === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = before;
+  });
+  const sql = getSql();
+  await migrate(sql);
+  await sql.begin((tx) => tx`insert into documents (path, content) values ('config/site.yml', 'title: A')`);
+
+  const client = connect(localDatabaseUrl(folder));
+  await client.end();
+  assert.equal(fs.existsSync(`${folder}.lock`), false, 'closing releases the lock');
+  assert.deepEqual(await migrate(client), [], 'the reopened folder already has every migration');
+  assert.deepEqual(await getSql()`select content from documents`, [{ content: 'title: A' }]);
+  await client.end();
+});
+
+test('connect: a pglite: folder another live process holds is refused, not opened twice', async () => {
+  const folder = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'scholaros-db-')), 'db');
+  fs.writeFileSync(`${folder}.lock`, String(process.ppid));
+  await assert.rejects(connect(localDatabaseUrl(folder))`select 1`, /open in another process/);
+  fs.writeFileSync(`${folder}.lock`, '999999999');
+  const sql = connect(localDatabaseUrl(folder));
+  assert.deepEqual(await sql`select 1 as one`, [{ one: 1 }], 'a lock left by a dead process is taken over');
+  await sql.end();
 });
