@@ -161,7 +161,7 @@ labName: 'Smith Research Lab'
 university: 'University of Technology'
 department: 'Department of Computer Science'
 siteUrl: 'https://example.com'
-logo: '/images/logo.svg' # beside the name in the header; tab icons are the favicon files in public/
+logo: '/images/logo.png' # beside the name in the header; tab icons are the favicon files in public/
 
 # Navigation items
 nav:
