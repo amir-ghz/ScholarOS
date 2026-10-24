@@ -251,11 +251,28 @@ cd YOUR_REPO
 # Install dependencies
 pnpm install
 
-# Start development server with hot-reload
+# Start the full site and admin on a local database, with hot-reload
 pnpm dev
 ```
 
-Your site will be running at `http://localhost:4321`.
+Your site will be running at `http://localhost:4321`, with the admin at `http://localhost:4321/admin`.
+
+`pnpm dev` runs every feature (the admin, Reading, the job search, the vault and public notes) with no Neon, Vercel or
+Blob account. It is Postgres mode on [PGlite](https://pglite.dev), an in-process Postgres kept in `.data/`; uploads go
+to `public/uploads/`. Both folders are gitignored. The first run copies the repo's content into the database, asks
+for a username and a password (12+ characters) for the site owner, and saves a `SESSION_SECRET` into `.env.local`
+(saved AI keys are encrypted with it, so keep it). Without a terminal to ask in, it prints the command to run instead:
+`pnpm admin:create-user <username>`, with the server stopped. The nightly jobs don't run on their own locally; use the
+admin's Run buttons.
+
+From then on the database is the content: edits made in the admin show at once, and edits to the repo's files don't
+show. To start over from the repo's files, stop the server and delete `.data/`.
+
+Other ways to run it:
+
+- `pnpm dev:static` serves the static site straight from the repo's files (what GitHub Pages builds), with no admin.
+- `pnpm dev:postgres` runs Postgres mode against a Neon dev branch and the shared Blob store (see
+  [Local development against Neon](#local-development-against-neon)).
 
 #### Where to edit what
 
@@ -279,7 +296,8 @@ Your site will be running at `http://localhost:4321`.
 #### Build commands
 
 ```bash
-pnpm dev              # Start development server
+pnpm dev              # Start the full site and admin on a local database (.data/)
+pnpm dev:static       # Start the static site from the repo's files
 pnpm build            # Build for production
 pnpm preview          # Preview production build locally
 pnpm sync:feeds       # Sync external RSS feeds
@@ -591,7 +609,7 @@ If your site already runs on Vercel, set the environment variables below before 
 
 Sign in at `https://<your-domain>/<adminPath>`. Only `adminUsers` can sign in, and the token never leaves the server. `.env.example` lists the same variables.
 
-To try the admin locally without GitHub, run `VERCEL=1 ADMIN_STORE=memory SESSION_SECRET=<32+ characters> pnpm dev` and open `http://localhost:4321/api/admin/auth/dev`. Edits stay in memory and are never written to disk.
+To try the admin locally without GitHub, run `VERCEL=1 ADMIN_STORE=memory SESSION_SECRET=<32+ characters> pnpm dev:static` and open `http://localhost:4321/api/admin/auth/dev`. Edits stay in memory and are never written to disk.
 
 ### Postgres mode (live edits, no rebuilds)
 
@@ -813,7 +831,7 @@ pdf:
 
 A private job search inside the admin. Each night it gathers postings from the sources you turn on, scores them against your CV and preferences, and lists the best matches. On a posting, **Draft CV and letter** (later **Regenerate both**) writes a tailored CV (rendered to PDF in one of your [CV styles](#cv-styles)), a cover letter and, for Greenhouse forms, proposed answers. **Pre-fill the application** then fills in the real form and stops before Submit. Nothing is sent until you approve it.
 
-**Owner only, Postgres mode only.** Only the owner sees the screens, the data and the source keys. The owner is the `owner` entry in `config/site.yml`; when that is empty, it is the first `adminUsers` entry. An entry is a GitHub login or `password:<username>`, matched like `publishers`. Anyone else gets a 404, so they cannot tell the feature exists. In static and git mode every job-search screen and route answers 404 and the nav link is hidden (CV styles keep working in all modes).
+**Owner only, Postgres mode only.** Only the owner sees the screens, the data and the source keys. The owner is the `owner` entry in `config/site.yml`; when that is empty, it is the first `adminUsers` entry. Under `pnpm dev` it is the `owner` entry in the local database's `site.yml`, which the first run sets to the account it creates (applied when the server starts). An entry is a GitHub login or `password:<username>`, matched like `publishers`. Anyone else gets a 404, so they cannot tell the feature exists. In static and git mode every job-search screen and route answers 404 and the nav link is hidden (CV styles keep working in all modes).
 
 **Sources.** Turn them on under **Job search → Settings → Sources**. A source that needs a key you have not saved reports `skipped: no <KEY>`; that is not a failure. Keys live in the `secrets` table, never in content or the git backup.
 

@@ -1325,7 +1325,7 @@ async function main() {
     console.log(`\nNext steps:`);
     console.log(`  1. Review the generated files`);
     console.log(`  2. Run: pnpm build`);
-    console.log(`  3. Run: pnpm dev`);
+    console.log(`  3. Run: pnpm dev:static`);
   } finally {
     // 17. Cleanup temp dir
     console.log('\nCleaning up temp directory...');

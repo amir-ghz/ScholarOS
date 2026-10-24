@@ -74,7 +74,9 @@ pnpm install
 pnpm dev
 ```
 
-The site will be available at `http://localhost:4321` with hot-reload enabled.
+The site will be available at `http://localhost:4321` with hot-reload enabled. `pnpm dev` runs the full site and
+admin on a local database in `.data/` (the first run asks for an owner account); `pnpm dev:static` serves the static
+site from the repo's files.
 
 5. **Create a branch for your changes:**
 
@@ -85,7 +87,8 @@ git checkout -b feature/your-feature-name
 ### Useful Commands
 
 ```bash
-pnpm dev              # Start dev server with hot-reload
+pnpm dev              # Start the full site and admin on a local database (.data/)
+pnpm dev:static       # Start the static site from the repo's files
 pnpm build            # Build for production
 pnpm preview          # Preview production build locally
 pnpm sync:feeds       # Test RSS feed sync locally
