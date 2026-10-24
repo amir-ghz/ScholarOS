@@ -5,6 +5,7 @@ import { listEntries, readConfig } from './admin/content';
 import { UpstreamError, type ContentStore } from './admin/store';
 import { PathError, THEME_NAME, configPath } from './admin/paths';
 import { BUILT_IN_THEMES, parseStyles, readThemeFiles, type CvStyle } from './cv-styles';
+import { explainPythonFailure, pythonCommand } from './python';
 import type { CvConfig } from './types';
 
 export interface CvRenderRequest {
@@ -49,16 +50,19 @@ async function viaService(url: string, body: string): Promise<Uint8Array> {
 
 function viaCli(body: string): Promise<Uint8Array> {
   return new Promise((resolve, reject) => {
-    const child = spawn('python3', ['services/cv-render/cli.py'], { timeout: TIMEOUT_MS });
+    const child = spawn(pythonCommand(), ['services/cv-render/cli.py'], { timeout: TIMEOUT_MS });
     const out: Buffer[] = [];
     let err = '';
     child.stdout.on('data', (d: Buffer) => out.push(d));
     child.stderr.on('data', (d: Buffer) => (err += d));
-    child.on('error', (e) => reject(new UpstreamError(`Could not run the CV renderer: ${e.message}`)));
+    child.on('error', (e) =>
+      reject(new UpstreamError(explainPythonFailure(e.message) ?? `Could not run the CV renderer: ${e.message}`)),
+    );
     child.on('close', (code) => {
       if (code === 0) return resolve(new Uint8Array(Buffer.concat(out)));
       if (code === 2) return reject(new CvRenderError(err.trim() || 'RenderCV rejected the CV'));
-      reject(new UpstreamError(`CV renderer failed (exit ${code}): ${err.trim().slice(-300)}`));
+      const plain = explainPythonFailure(err);
+      reject(new UpstreamError(plain ?? `CV renderer failed (exit ${code}): ${err.trim().slice(-300)}`));
     });
     child.stdin.on('error', () => {}); // the close handler reports a dead child
     child.stdin.end(body);

@@ -53,3 +53,6 @@ src/pages/.well-known/workflow/
 
 # pnpm dev: the local database and its uploads
 .data/
+
+# pnpm setup:python: the project's Python for the CV renderer and Scholar sync
+.venv/

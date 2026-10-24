@@ -13,6 +13,7 @@ import { loadAdminSettings } from '../src/lib/admin/settings';
 import { connect, localDatabaseUrl } from '../src/lib/db';
 import { postgresDevEnv } from '../src/lib/dev-env';
 import { LOCAL_DATABASE, ensureSessionSecret, setUpLocal, type OwnerAccount } from '../src/lib/local-dev';
+import { SETUP_PYTHON, pythonCommand } from '../src/lib/python';
 import { ask } from './ask';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
@@ -49,6 +50,7 @@ const { done, owner } = await setUpLocal(sql, ROOT, process.stdin.isTTY ? askOwn
     process.exit(1);
   });
 for (const line of done) console.log(line);
+if (pythonCommand(ROOT) === 'python3') console.log(`CV PDFs need Python packages: run \`${SETUP_PYTHON}\` once.`);
 const env = { ...postgresDevEnv(fileEnv, process.env, url), ...(owner ? { SCHOLAROS_OWNER: owner } : {}) };
 const child = spawn(
   process.execPath,
