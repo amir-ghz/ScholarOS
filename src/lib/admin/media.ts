@@ -135,7 +135,7 @@ export function sniffImage(bytes: Uint8Array): string | null {
   return svgText(bytes) ? 'svg' : null;
 }
 
-const CONTENT_TYPES: Record<string, string> = {
+export const CONTENT_TYPES: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',
   gif: 'image/gif',

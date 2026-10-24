@@ -1,11 +1,13 @@
 import type { MiddlewareHandler } from 'astro';
 import { SESSION_COOKIE, openSession, sessionSecret } from './lib/admin/session';
 import { isAllowed } from './lib/admin/access';
+import { CONTENT_TYPES } from './lib/admin/media';
 import { adminSettings } from './lib/admin/settings';
 import { cacheTagHeader } from './lib/cache-tags';
 import { isPageOn } from './lib/config';
 import { loadSiteFiles, newContext, runWithContext } from './lib/content/context';
-import { getSql, isUnreachable } from './lib/db';
+import { getSql, isLocalDatabase, isUnreachable } from './lib/db';
+import { localUploads } from './lib/local-uploads';
 import { getMode } from './lib/mode';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -75,6 +77,16 @@ export const onRequest: MiddlewareHandler = async (ctx, next) => {
   }
   const { pathname } = ctx.url;
   if (ctx.isPrerendered) return isPageOn(pathname) ? next() : notFound();
+  // `astro dev` serves a new file in public/ only once its watcher sees it: the admin's preview of an upload comes first.
+  if (pathname.startsWith('/uploads/') && isLocalDatabase()) {
+    const bytes = await localUploads()
+      .get(pathname)
+      .catch(() => null);
+    if (bytes)
+      return new Response(bytes as Uint8Array<ArrayBuffer>, {
+        headers: { 'Content-Type': CONTENT_TYPES[pathname.split('.').pop()!] ?? '' },
+      });
+  }
   const { adminPath, adminUsers } = adminSettings();
   const api = pathname === '/api/admin' || pathname.startsWith('/api/admin/');
   const page = pathname === `/${adminPath}` || pathname.startsWith(`/${adminPath}/`);

@@ -31,7 +31,8 @@ export const POST = route(async ({ request }, store) => {
   return json(await store.putMedia(folder, filename, base64, contentType));
 });
 
-const isUrl = (s: string) => /^https:\/\//.test(s);
+/** A stored upload's URL: Vercel Blob, or `pnpm dev`'s /uploads/. */
+const isUrl = (s: string) => /^https:\/\/|^\/uploads\//.test(s);
 
 /**
  * An image referenced from front matter must stay: in git mode image() fails the build when the file is gone; in
