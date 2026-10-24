@@ -1,0 +1,6 @@
+allowBuilds:
+  '@swc/core': false
+  cbor-extract: false
+  esbuild: true
+  ffmpeg-static: true
+  sharp: true
