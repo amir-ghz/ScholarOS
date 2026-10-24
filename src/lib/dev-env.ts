@@ -36,18 +36,28 @@ function assertNotProduction(dev: string, production: string | undefined) {
 }
 
 /**
- * The environment for `astro dev` in Postgres mode: the shell's, the pulled secrets, VERCEL=1, and DATABASE_URL set
- * to DEV_DATABASE_URL — never to a DATABASE_URL from .env.local or the shell (that one is production).
+ * The environment for `astro dev` in Postgres mode against the Neon dev branch: DATABASE_URL set to DEV_DATABASE_URL,
+ * never to a DATABASE_URL from .env.local or the shell (that one is production).
  */
 export function devEnv(
   fileEnv: Env,
   shellEnv: NodeJS.ProcessEnv,
   generateSecret = () => randomBytes(32).toString('base64url'),
 ): Record<string, string> {
-  const pick = (k: string) => shellEnv[k] ?? fileEnv[k];
-  const dev = pick('DEV_DATABASE_URL');
+  const dev = shellEnv.DEV_DATABASE_URL ?? fileEnv.DEV_DATABASE_URL;
   if (!dev) throw new Error(MISSING_DEV);
   assertNotProduction(dev, fileEnv.DATABASE_URL);
+  return postgresDevEnv(fileEnv, shellEnv, dev, generateSecret);
+}
+
+/** `astro dev` in Postgres mode on `databaseUrl`: the shell's environment, the pulled secrets and VERCEL=1. */
+export function postgresDevEnv(
+  fileEnv: Env,
+  shellEnv: NodeJS.ProcessEnv,
+  databaseUrl: string,
+  generateSecret = () => randomBytes(32).toString('base64url'),
+): Record<string, string> {
+  const pick = (k: string) => shellEnv[k] ?? fileEnv[k];
   const out: Record<string, string> = {};
   for (const [k, v] of Object.entries(shellEnv)) if (v !== undefined) out[k] = v;
   // The daily backup must only ever mirror production: no GitHub token for dev, whatever the shell holds.
@@ -58,7 +68,7 @@ export function devEnv(
   }
   out.SESSION_SECRET = pick('SESSION_SECRET') || generateSecret();
   out.VERCEL = '1';
-  out.DATABASE_URL = dev;
+  out.DATABASE_URL = databaseUrl;
   return out;
 }
 

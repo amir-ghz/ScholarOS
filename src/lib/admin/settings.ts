@@ -7,7 +7,10 @@ import type { SessionUser } from './session';
 export interface AdminSettings {
   adminPath: string;
   adminUsers: string[];
-  /** The one admin who sees the job search (site.yml `owner`, else the first adminUsers entry, else ''). */
+  /**
+   * The one admin who sees the job search: SCHOLAROS_OWNER (`pnpm dev` sets it from the local database's site.yml),
+   * else site.yml `owner`, else the first adminUsers entry, else ''.
+   */
   owner: string;
   /** Who may publish from the Site editor (site.yml `publishers`); empty means every admin. */
   publishers: string[];
@@ -38,7 +41,7 @@ export function loadAdminSettings(root = process.cwd()): AdminSettings {
   return {
     adminPath: trimSlashes(String(site.adminPath || 'admin')),
     adminUsers,
-    owner: String(site.owner || adminUsers[0] || ''),
+    owner: String(process.env.SCHOLAROS_OWNER || site.owner || adminUsers[0] || ''),
     publishers: Array.isArray(site.publishers) ? site.publishers.map(String) : [],
     mediaFolder,
     publicFolder: `/${trimSlashes(String(cms.public_folder ?? mediaFolder))}`,

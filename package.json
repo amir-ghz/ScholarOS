@@ -5,9 +5,10 @@
   "description": "A forkable academic/lab website template built with Astro, Vue, and Tailwind CSS",
   "license": "MIT",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "tsx scripts/dev-local.ts",
+    "dev:static": "astro dev",
     "dev:postgres": "tsx scripts/dev-postgres.ts",
-    "start": "astro dev",
+    "start": "tsx scripts/dev-local.ts",
     "build": "astro build",
     "vercel-build": "tsx scripts/vercel-bootstrap.ts && astro build",
     "preview": "astro preview",

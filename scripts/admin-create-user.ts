@@ -1,19 +1,20 @@
 #!/usr/bin/env tsx
 /**
  * pnpm admin:create-user <username> [--reset] [--production]
- * Creates a password account (or with --reset sets a new password) on the dev branch (DEV_DATABASE_URL), or with
- * --production on DATABASE_URL after you type the username again.
+ * Creates a password account (or with --reset sets a new password) on the dev branch (DEV_DATABASE_URL), on
+ * `pnpm dev`'s local database (.data/db) when there is no dev branch, or with --production on DATABASE_URL after you
+ * type the username again.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import readline from 'node:readline';
 import { parseEnv } from 'node:util';
-import postgres from 'postgres';
 import { createAccount, resetPassword } from '../src/lib/admin/accounts';
 import { assertPasswordPolicy } from '../src/lib/admin/passwords';
 import { migrate } from '../src/lib/db-migrate';
-import type { Sql } from '../src/lib/db';
+import { connect, localDatabaseUrl } from '../src/lib/db';
 import { confirmsProduction, databaseFor, hostOf } from '../src/lib/dev-env';
+import { LOCAL_DATABASE } from '../src/lib/local-dev';
+import { ask } from './ask';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 const args = process.argv.slice(2);
@@ -27,29 +28,17 @@ if (!username) {
 const file = path.join(ROOT, '.env.local');
 const env = { ...(fs.existsSync(file) ? parseEnv(fs.readFileSync(file, 'utf8')) : {}), ...process.env };
 
-function ask(question: string, hidden = false): Promise<string> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-  if (hidden)
-    (rl as unknown as { _writeToOutput: (s: string) => void })._writeToOutput = (s) => {
-      if (s.startsWith(question)) process.stdout.write(question);
-    };
-  return new Promise((resolve) =>
-    rl.question(question, (answer) => {
-      rl.close();
-      if (hidden) process.stdout.write('\n');
-      resolve(answer);
-    }),
-  );
-}
-
+const local = !production && !env.DEV_DATABASE_URL;
 let url: string;
 try {
-  url = databaseFor(env, production);
+  url = local ? localDatabaseUrl(path.join(ROOT, LOCAL_DATABASE)) : databaseFor(env, production);
 } catch (e) {
   console.error((e as Error).message);
   process.exit(1);
 }
-console.log(`${production ? 'PRODUCTION' : 'Dev branch'} database: ${hostOf(url)}`);
+console.log(
+  local ? `Local database: ${LOCAL_DATABASE}` : `${production ? 'PRODUCTION' : 'Dev branch'} database: ${hostOf(url)}`,
+);
 if (production && !confirmsProduction(await ask(`Type the username (${username}) to confirm: `), username)) {
   console.error('Not confirmed; nothing written.');
   process.exit(1);
@@ -66,8 +55,7 @@ if ((await ask('Password again: ', true)) !== password) {
   console.error('The passwords don’t match; nothing written.');
   process.exit(1);
 }
-const client = postgres(url, { max: 1, prepare: false });
-const sql = client as unknown as Sql;
+const sql = connect(url);
 try {
   await migrate(sql, path.join(ROOT, 'migrations'));
   if (resetting) {
@@ -81,5 +69,5 @@ try {
   console.error((e as Error).message);
   process.exitCode = 1;
 } finally {
-  await client.end();
+  await sql.end();
 }

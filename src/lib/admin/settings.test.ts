@@ -87,3 +87,9 @@ test('owner defaults to the first adminUsers entry; password:<user> names a pass
   assert.equal(loadAdminSettings(root).owner, 'a');
   assert.equal(loadAdminSettings(fixture('adminUsers: [a, b]\nowner: b\n', '')).owner, 'b');
 });
+
+test('SCHOLAROS_OWNER (set by pnpm dev from the local database) wins over site.yml owner', (t) => {
+  process.env.SCHOLAROS_OWNER = 'password:jane';
+  t.after(() => delete process.env.SCHOLAROS_OWNER);
+  assert.equal(loadAdminSettings(fixture('adminUsers: [a]\nowner: a\n', '')).owner, 'password:jane');
+});
