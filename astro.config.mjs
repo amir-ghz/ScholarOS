@@ -14,8 +14,10 @@ import { modeFromEnv } from './src/lib/mode';
 
 const mode = modeFromEnv(process.env);
 
-// workflow() (Postgres mode) regenerates these server routes on every build; no other build may see a stale copy.
-fs.rmSync('src/pages/.well-known/workflow', { recursive: true, force: true });
+// workflow() (Postgres mode) regenerates these server routes on every start and build; no other build may see a stale
+// copy. Only a build removes them: every astro command loads this file, and `astro check` or `astro sync` deleting them
+// would leave a running `pnpm dev` with no route for its background jobs (each one then fails and retries).
+if (process.argv.includes('build')) fs.rmSync('src/pages/.well-known/workflow', { recursive: true, force: true });
 
 // Postgres mode also decides at request time whether the built-in news art is line art to invert in dark mode
 // (src/lib/inkArt.ts), which reads the image files.

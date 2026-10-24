@@ -30,8 +30,12 @@ const NO_BODY = new Set([101, 204, 205, 304]);
 /** Bodyless, so Astro renders 404.astro on a request and writes no file for a prerendered page. */
 const notFound = () => new Response(null, { status: 404 });
 
-/** Postgres mode, public GET/HEAD: render inside a request context, then cache on the CDN tagged with what it read. */
-async function publicPage(pathname: string, next: () => Promise<Response>): Promise<Response> {
+/**
+ * Postgres mode, public routes: render inside a request context, and cache a GET/HEAD on the CDN tagged with what it
+ * read. Other methods need the context too: a POST to a missing route (a workflow queue callback whose generated route
+ * is gone) reroutes to 404.astro, which reads the site config.
+ */
+async function publicPage(pathname: string, next: () => Promise<Response>, cacheable: boolean): Promise<Response> {
   let files: Map<string, string>;
   try {
     files = await loadSiteFiles(getSql());
@@ -57,7 +61,7 @@ async function publicPage(pathname: string, next: () => Promise<Response>): Prom
     }
     if (context.dbFailed) return unavailable();
     const out = new Response(body, res);
-    if (res.status === 200) {
+    if (res.status === 200 && cacheable) {
       out.headers.set('Vercel-CDN-Cache-Control', 'public, max-age=31536000');
       out.headers.set('Cache-Control', 'public, max-age=0, must-revalidate');
       out.headers.set('Vercel-Cache-Tag', cacheTagHeader(context.tags));
@@ -91,7 +95,7 @@ export const onRequest: MiddlewareHandler = async (ctx, next) => {
   const page = pathname === `/${adminPath}` || pathname.startsWith(`/${adminPath}/`);
   if (!api && !page) {
     const cacheable = ctx.request.method === 'GET' || ctx.request.method === 'HEAD';
-    if (getMode() === 'postgres') return cacheable ? publicPage(pathname, next) : next();
+    if (getMode() === 'postgres') return publicPage(pathname, next, cacheable);
     return isPageOn(pathname) ? next() : notFound();
   }
 

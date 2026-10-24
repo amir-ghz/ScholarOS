@@ -62,6 +62,17 @@ test('a warm function sees the next site.yml', async () => {
   assert.equal(await (await run('/', async () => streamingTitle())).text(), 'B');
 });
 
+test('a POST is rendered in the context too (404.astro for a missing route reads config), and never cached', async () => {
+  // A workflow queue callback whose generated route is gone: Astro renders 404.astro, which reads site.yml.
+  const res = (await onRequest(
+    ctx('/.well-known/workflow/v1/flow', 'POST') as never,
+    (async () => streamingTitle()) as never,
+  )) as Response;
+  assert.match(await res.text(), /^[AB]$/);
+  assert.equal(res.headers.get('vercel-cdn-cache-control'), null);
+  assert.notEqual(res.headers.get('cache-control'), 'public, max-age=0, must-revalidate');
+});
+
 test('404 and 500 are never cached', async () => {
   const res = await run('/nope', async () => new Response('missing', { status: 404 }));
   assert.equal(res.status, 404);
