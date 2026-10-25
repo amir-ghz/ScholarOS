@@ -222,8 +222,12 @@ failed-run emails.
 - **Create does nothing, or the repository name is taken.** GitHub names ignore case, so `scholaros-site` clashes with
   a repository you made with an earlier click, and `scholaros` with a ScholarOS fork. Type another name in **Private
   Repository Name**.
-- **It asks you to create a team or start a Pro trial.** Pick your Hobby account under **Vercel Team** instead (sign
-  up for Hobby first if it isn't listed).
+- **Create is greyed out, or it asks for a team name, a Pro plan or a Pro trial.** The clone page deploys into a
+  Vercel team, and your login has no Hobby (free) team to pick, which happens when its only team is a Pro or Pro-trial
+  one. Each login can have one Hobby team: in the [dashboard](https://vercel.com/dashboard) open the team switcher (top
+  left) → **Create Team**, name it and choose **Hobby**; or turn your trial team into Hobby (team → **Settings** →
+  **Billing** → **Downgrade Plan**). Then reload the button and pick that team under **Vercel Team**. Also check that
+  **Git Scope** names your GitHub account (**Add GitHub Account** if it's empty).
 - **The build failed with "no Blob store is connected".** In the project open **Storage**, connect a Blob store with
   public access, then **Redeploy**.
 - **The login page says "This site isn't fully set up yet".** It lists what is missing and how to fix it. Most often
