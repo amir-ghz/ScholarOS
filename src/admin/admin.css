@@ -1039,14 +1039,13 @@ span.adm-cite {
   color: var(--adm-danger);
   font-size: 13px;
 }
-.adm input[type='text'],
-.adm input[type='email'],
-.adm input[type='date'],
-.adm input[type='number'],
-.adm input[type='search'],
-.adm input[type='password'],
+/* Native fields only: PrimeVue inputs (.p-component) keep the theme's look. */
+.adm
+  input:is([type='text'], [type='email'], [type='date'], [type='number'], [type='search'], [type='password']):not(
+    .p-component
+  ),
 .adm select,
-.adm textarea {
+.adm textarea:not(.p-component) {
   width: 100%;
   font: inherit;
   font-size: 14px;

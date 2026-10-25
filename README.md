@@ -576,7 +576,34 @@ Ready-to-use forms powered by Web3Forms:
 
 ### Analytics
 
-Plug in your preferred analytics provider (all opt-in):
+**Built in (Postgres mode and `pnpm dev`).** Every public page counts itself, and the admin's **Analytics** screen
+(and the Dashboard) shows:
+
+- visitors and page views against the previous period, pages per visitor and bounce rate
+- traffic over time
+- traffic sources (search, social, email, other websites, campaigns via `utm_*`, direct) and referring sites
+- a world map and lists of countries and cities
+- top pages with their titles
+- devices, browsers and operating systems
+- who is on the site right now
+
+It is first-party and sets no cookie, so it adds nothing to a cookie banner (privacy rules vary by country):
+
+- **Nothing leaves the site.** The page sends a small beacon to `/api/collect`, and the views are stored in the
+  site's own database. No cookie is set.
+- **No IP address is stored.** A visitor is a hash of a salt that changes every day, the IP and the browser's
+  User-Agent. Someone counts once a day but can't be followed from one day to the next.
+- **Some visits are never counted:** bots, signed-in admins, and browsers that send Do Not Track or Global Privacy
+  Control.
+- **Location comes from Vercel's geo headers.** A local `pnpm dev` visit has none.
+- **Old data is deleted.** Views older than 400 days go automatically.
+- **Sample data, locally only.** On `pnpm dev`'s local database the Analytics screen offers **Load sample data** (90
+  days of made-up traffic, tagged so **Remove sample data** takes out exactly those views). Use it to try the
+  charts.
+
+Ad blockers stop some beacons, so the numbers are a lower bound.
+
+**Third-party providers.** You can also plug in your preferred analytics provider (all opt-in):
 
 | Provider               | Config Key         |
 | ---------------------- | ------------------ |
@@ -605,7 +632,16 @@ Auto-generated RSS 2.0 feed at `/feed.xml` with `<link>` auto-discovery in the p
 
 ### CMS Admin Panel
 
-Built-in content management system at `/admin`:
+On Vercel and under `pnpm dev`, `/admin` is a dashboard-style admin built with Vue 3 and
+[PrimeVue](https://primevue.org). Its layout follows [Sakai](https://github.com/primefaces/sakai-vue) (MIT), with:
+
+- a sidebar menu grouped into sections
+- a header with search (⌘K), notifications from Site status, and light, dark or system theme
+- the Dashboard (visitors, content and site status) and Analytics screens
+
+PrimeVue, its theme and PrimeIcons are pinned to their last MIT releases, and a test fails if one stops being MIT.
+
+On GitHub Pages and Netlify, `/admin` is Sveltia CMS instead, a built-in content management system:
 
 - **Visual editor** -- edit content without touching code
 - **Collection management** -- full CRUD for all content types

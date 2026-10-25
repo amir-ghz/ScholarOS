@@ -161,7 +161,7 @@ const firstRun =
     <script is:inline>
       // The admin's light/dark choice (AdminShell), applied before first paint.
       try {
-        var t = localStorage.getItem('adm-theme') || 'system';
+        const t = localStorage.getItem('adm-theme') || 'system';
         if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
           document.documentElement.classList.add('app-dark');
       } catch (e) {}

@@ -13,18 +13,18 @@ const on = getMode() === 'postgres';
     if (window.__scholarosCollect) return;
     window.__scholarosCollect = true;
     if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
-    var last = '';
+    let last = '';
     function send() {
       if (location.pathname === last) return;
-      var ref = last ? location.origin + last : document.referrer;
+      const ref = last ? location.origin + last : document.referrer;
       last = location.pathname;
-      var q = new URLSearchParams(location.search);
-      var u = {};
+      const q = new URLSearchParams(location.search);
+      const u = {};
       ['source', 'medium', 'campaign'].forEach(function (k) {
-        var v = q.get('utm_' + k);
+        const v = q.get('utm_' + k);
         if (v) u[k] = v;
       });
-      var body = JSON.stringify({ p: location.pathname, r: ref, w: screen.width, l: navigator.language, u: u });
+      const body = JSON.stringify({ p: location.pathname, r: ref, w: screen.width, l: navigator.language, u: u });
       try {
         if (!(navigator.sendBeacon && navigator.sendBeacon('/api/collect', body)))
           fetch('/api/collect', { method: 'POST', body: body, keepalive: true });

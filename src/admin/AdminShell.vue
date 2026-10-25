@@ -116,7 +116,15 @@ const groupOf = computed(
 // Sidebar: collapsed to icons on desktop (remembered), off-canvas on screens under 1200px.
 const collapsed = ref(false);
 const mobileOpen = ref(false);
-const desktop = () => window.matchMedia('(min-width: 1200px)').matches;
+const wideQuery = window.matchMedia('(min-width: 1200px)');
+const wide = ref(wideQuery.matches);
+const desktop = () => wideQuery.matches;
+const onWide = () => {
+  wide.value = wideQuery.matches;
+  if (wide.value) mobileOpen.value = false;
+};
+/** Is the menu showing? Desktop: not collapsed to icons; phones and tablets: the off-canvas menu is open. */
+const menuShown = computed(() => (wide.value ? !collapsed.value : mobileOpen.value));
 function toggleMenu() {
   if (desktop()) {
     collapsed.value = !collapsed.value;
@@ -300,6 +308,7 @@ onMounted(async () => {
   }
   applyTheme();
   media.addEventListener('change', onScheme);
+  wideQuery.addEventListener('change', onWide);
   addEventListener('keydown', onKey);
   addEventListener('beforeunload', onLeave);
   addEventListener('unhandledrejection', onUnhandled);
@@ -314,6 +323,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
   media.removeEventListener('change', onScheme);
+  wideQuery.removeEventListener('change', onWide);
   removeEventListener('keydown', onKey);
   removeEventListener('beforeunload', onLeave);
   removeEventListener('unhandledrejection', onUnhandled);
@@ -412,7 +422,8 @@ const year = new Date().getFullYear();
       <button
         type="button"
         class="layout-topbar-btn"
-        :aria-label="collapsed || !mobileOpen ? 'Open or collapse the menu' : 'Close the menu'"
+        aria-label="Menu"
+        :aria-expanded="menuShown"
         aria-controls="adm-sidebar"
         @click="toggleMenu"
       >

@@ -20,6 +20,15 @@ const indigo = {
 };
 
 export const AdminPreset = definePreset(Aura, {
+  components: {
+    // Outlined secondary buttons (Preview, Save draft…) read as text, not as disabled.
+    button: {
+      colorScheme: {
+        light: { outlined: { secondary: { color: '{surface.700}', borderColor: '{surface.300}' } } },
+        dark: { outlined: { secondary: { color: '{surface.200}', borderColor: '{surface.600}' } } },
+      },
+    },
+  },
   semantic: {
     primary: indigo,
     colorScheme: {

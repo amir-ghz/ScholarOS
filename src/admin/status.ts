@@ -451,13 +451,6 @@ export function statusSummary(rows: StatusRow[]): Verdict {
   return verdict('ok', 'Everything is up to date');
 }
 
-/** The chip class for a post or news status; Published keeps the plain chip. */
-export const STATUS_CHIP: Record<string, string> = {
-  Scheduled: 'adm-status-scheduled',
-  Draft: 'adm-status-draft',
-  'News draft': 'adm-status-draft',
-};
-
 export interface NextUpItem {
   key: string;
   title: string;
