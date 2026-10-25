@@ -36,12 +36,15 @@
 .adm *::after {
   box-sizing: border-box;
 }
-.adm a {
+.adm a:where(:not(.p-button)) {
   color: var(--adm-accent);
   text-decoration: none;
 }
-.adm a:hover {
+.adm a:where(:not(.p-button)):hover {
   text-decoration: underline;
+}
+.adm a.p-button:hover {
+  text-decoration: none;
 }
 .adm :focus-visible {
   outline: 2px solid var(--adm-accent);

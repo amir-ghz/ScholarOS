@@ -1,5 +1,6 @@
 ---
 import Ai from '../Ai.vue';
+import Analytics from '../Analytics.vue';
 import Career from '../Career.vue';
 import CareerJob from '../CareerJob.vue';
 import CareerSettings from '../CareerSettings.vue';
@@ -44,6 +45,7 @@ const { adminPath, siteName } = adminSettings();
 const [screen = '', arg = '', sub = '', ...rest] = (Astro.params.path ?? '').split('/');
 const SCREENS = new Set([
   '',
+  'analytics',
   'login',
   'media',
   'posts',
@@ -63,6 +65,7 @@ const CONTENT = ['announcements', 'people', 'projects', 'talks', 'positions'];
 if (!SCREENS.has(screen)) return new Response('Not found', { status: 404 });
 if (screen === 'content' && !CONTENT.includes(arg)) return new Response('Not found', { status: 404 });
 if (screen === 'users' && getMode() !== 'postgres') return new Response('Not found', { status: 404 });
+if (screen === 'analytics' && getMode() !== 'postgres') return new Response('Not found', { status: 404 });
 if (
   screen === 'career' &&
   (getMode() !== 'postgres' ||
@@ -178,6 +181,7 @@ const firstRun =
         homeHref={import.meta.env.BASE_URL}
       />
     )}
+    {screen === 'analytics' && <Analytics client:only="vue" ctx={ctx} />}
     {screen === 'media' && <Media client:only="vue" ctx={ctx} />}
     {screen === 'pages' && <Pages client:only="vue" ctx={ctx} />}
     {screen === 'settings' && <Settings client:only="vue" ctx={ctx} />}

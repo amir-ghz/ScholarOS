@@ -186,3 +186,18 @@ test('titles: name before title in front matter; sections and plain paths otherw
   assert.equal(pageTitle('/publications', new Map()), 'Publications');
   assert.equal(pageTitle('/blog/missing', new Map()), '/blog/missing');
 });
+
+test('sample data: adds plausible views on the local database and removes only those', async () => {
+  const { addDemoViews, removeDemoViews } = await import('./demo');
+  const now = new Date('2026-10-20T12:00:00Z');
+  await recordView(sql, { p: '/' }, visit({ ip: '192.0.2.50' }), now);
+  const added = await addDemoViews(sql, now, 30);
+  assert.ok(added > 500, `added ${added}`);
+  const r = await analyticsReport(sql, '30d', now);
+  assert.ok(r.totals.visitors > 300);
+  assert.ok(r.countries.length > 8);
+  assert.ok(r.live >= 1);
+  assert.equal(await removeDemoViews(sql), added);
+  const [{ n }] = await sql<{ n: number }>`select count(*)::int as n from page_views`;
+  assert.equal(n, 1, 'the real view stays');
+});
