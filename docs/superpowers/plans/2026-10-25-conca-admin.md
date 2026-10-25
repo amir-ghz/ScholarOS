@@ -5,7 +5,19 @@
 add first-party site analytics (visitors, page views, where they came from, countries, devices) shown the way Conca's
 Academy and Analytics dashboards show data.
 
-**Status.** Started 2026-10-25 on branch `admin-redesign`. Decisions D1 and D2 were taken with the owner.
+**Status.** Done 2026-10-25 on branch `admin-redesign` (D1 and D2 taken with the owner).
+
+All admin screens moved: the shell, login, Dashboard and the new Analytics screen, plus content (12 files), setup
+(8), job search (4) and reading (10). Each was checked in Chrome at 1440px light and dark and at 390px, and the
+checks below passed.
+
+| Check | Result |
+| --- | --- |
+| Unit tests (`pnpm test`) | 1,341 of 1,366 pass; 25 skipped by the suite. One timing test failed once under load and passes alone and on `main`. |
+| Browser tests (`tests/e2e/admin.spec.ts`, run with installed Chrome) | 18/18 pass |
+| Read-only sweep of 27 routes × light, dark and phone | 81 views: status 200, no console errors, no sideways scroll |
+| `astro check` | 0 errors, 0 warnings |
+| Static build | 37 pages; no PrimeVue CSS or JS on public pages |
 
 ---
 
