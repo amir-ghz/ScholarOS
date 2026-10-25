@@ -58,6 +58,8 @@ export default function admin(): AstroIntegration {
             entrypoint: entry('src/lib/content/sitemap.ts'),
             prerender: false,
           });
+          // First-party analytics: the public pages' beacon (src/components/astro/Collect.astro).
+          injectRoute({ pattern: '/api/collect', entrypoint: entry('src/lib/analytics/route.ts'), prerender: false });
         }
       },
       'astro:route:setup': ({ route }) => {
