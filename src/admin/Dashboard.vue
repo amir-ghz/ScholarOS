@@ -15,7 +15,6 @@ import {
   plainFailure,
   siteStatus,
   statusSummary,
-  STATUS_CHIP,
   type DashboardData,
   type NewsDraft,
   type RunKind,
