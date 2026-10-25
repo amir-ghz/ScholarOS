@@ -1,35 +1,35 @@
 /* Admin UI. Tokens come from src/themes/editorial/editorial.css; layout follows personal-site-handoff/design/Admin*. */
 :root {
-  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
   --font-serif: 'Source Serif 4', Georgia, serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
+/* The screens' own tokens, mapped onto the admin design system (prime/layout.css, PrimeVue preset). */
 .adm {
-  --adm-ink: var(--ed-ink, #15192b);
-  --adm-muted: var(--ed-caption, #656b80);
-  --adm-rule: var(--ed-rule, #e4e7ee);
-  --adm-tint: var(--ed-tint, #f3f5fa);
-  --adm-hover: var(--ed-hover, #f6f8fc);
-  --adm-accent: var(--ed-accent, #1f3c88);
-  --adm-accent-hover: var(--ed-accent-hover, #142a63);
-  --adm-danger: #a12a2a;
-  /* Admin-only values: the admin stays light, so these are not theme tokens. */
-  --adm-paper: #fff;
+  --adm-ink: var(--app-heading);
+  --adm-muted: var(--app-muted);
+  --adm-rule: var(--app-border);
+  --adm-tint: var(--app-canvas);
+  --adm-hover: var(--app-menu-hover);
+  --adm-accent: var(--p-primary-color);
+  --adm-accent-hover: var(--p-primary-hover-color);
+  --adm-danger: var(--c-danger);
+  --adm-paper: var(--app-card);
   --adm-on-ink: #fff;
-  --adm-on-ink-link: #c9d4ff;
-  --adm-selected: #e9ecf3;
-  --adm-warn-bg: #fdf8e7;
-  --adm-warn-rule: #e8d9a8;
-  --adm-danger-bg: #fdf1f1;
-  --adm-danger-rule: #e9b8b8;
-  --adm-add-bg: #e9f5ec;
-  --adm-add-ink: #1d5e33;
-  --adm-scrim: rgb(21 25 43 / 0.45);
-  --adm-float: 0 6px 20px rgb(21 25 43 / 0.12);
+  --adm-on-ink-link: #d9d3ff;
+  --adm-selected: color-mix(in srgb, var(--p-primary-color) 10%, var(--app-card));
+  --adm-warn-bg: color-mix(in srgb, var(--c-warning) 12%, var(--app-card));
+  --adm-warn-rule: color-mix(in srgb, var(--c-warning) 40%, var(--app-card));
+  --adm-danger-bg: color-mix(in srgb, var(--c-danger) 8%, var(--app-card));
+  --adm-danger-rule: color-mix(in srgb, var(--c-danger) 35%, var(--app-card));
+  --adm-add-bg: color-mix(in srgb, var(--c-success) 12%, var(--app-card));
+  --adm-add-ink: var(--c-success);
+  --adm-scrim: rgb(25 24 34 / 0.45);
+  --adm-float: var(--app-shadow-float);
   --adm-touch: 44px;
   margin: 0;
-  background: var(--adm-paper);
-  color: var(--adm-ink);
+  background: var(--app-canvas);
+  color: var(--app-body);
 }
 .adm *,
 .adm *::before,

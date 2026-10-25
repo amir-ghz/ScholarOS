@@ -38,6 +38,7 @@ import { authorOf } from '../../lib/admin/http';
 import { adminSettings, canPublish, isOwner } from '../../lib/admin/settings';
 import '../../themes/editorial/editorial.css';
 import '../admin.css';
+import '../prime/admin.css';
 
 const { adminPath, siteName } = adminSettings();
 const [screen = '', arg = '', sub = '', ...rest] = (Astro.params.path ?? '').split('/');
@@ -152,10 +153,18 @@ const firstRun =
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
     />
+    <script is:inline>
+      // The admin's light/dark choice (AdminShell), applied before first paint.
+      try {
+        var t = localStorage.getItem('adm-theme') || 'system';
+        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.documentElement.classList.add('app-dark');
+      } catch (e) {}
+    </script>
   </head>
-  <body class="adm">
+  <body class="adm" data-admin>
     {screen === 'login' && (
       <Login
         client:only="vue"

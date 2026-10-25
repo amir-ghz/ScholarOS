@@ -1,0 +1,32 @@
+/*
+ * The admin's design system: Sakai's stack (PrimeVue + Tailwind + tailwindcss-primeui + PrimeIcons) laid out and
+ * coloured like the Conca "Academy" dashboard. Loaded only by the admin route, so the public site is unaffected.
+ */
+@import 'tailwindcss' source(none);
+@source '../';
+@plugin 'tailwindcss-primeui';
+@import 'primeicons/primeicons.css';
+@import './layout.css';
+
+@custom-variant dark (&:where(.app-dark, .app-dark *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --breakpoint-*: initial;
+  --breakpoint-sm: 576px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 992px;
+  --breakpoint-xl: 1200px;
+  --breakpoint-2xl: 1600px;
+}
+
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--app-border, currentcolor);
+  }
+}
