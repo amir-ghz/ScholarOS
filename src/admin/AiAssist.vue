@@ -1,8 +1,11 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any -- front matter is user data */
 import { ref } from 'vue';
+import Button from 'primevue/button';
+import Textarea from 'primevue/textarea';
 import { api, report, toast } from './api';
 import { getIn, setIn } from './fields';
+import { HIDE_ICON } from './ui/content/pt';
 
 /** `doc` is the open document; AI results land in it as unsaved edits, so nothing is committed until the owner saves. */
 const props = defineProps<{
@@ -81,28 +84,120 @@ function undo() {
 </script>
 
 <template>
-  <fieldset class="adm-group" :disabled="disabled || !!busy">
-    <legend>AI assist</legend>
-    <label v-if="writes" class="adm-field">
+  <fieldset class="card ai" :disabled="disabled || !!busy">
+    <legend class="ai-legend">
+      <span class="stat-icon tint-pink ai-icon" aria-hidden="true"><i class="pi pi-sparkles" /></span>
+      AI assist
+    </legend>
+    <label v-if="writes" class="ai-field">
       <span>Instruction (optional)</span>
-      <textarea v-model="instruction" rows="2" placeholder="e.g. a friendly 300-word summary for non-specialists" />
+      <Textarea
+        v-model="instruction"
+        rows="2"
+        auto-resize
+        placeholder="e.g. a friendly 300-word summary for non-specialists"
+        fluid
+      />
     </label>
-    <div class="adm-actions">
+    <div class="ai-actions">
       <template v-if="writes">
-        <button type="button" class="adm-btn adm-btn-small" @click="run('write')">
-          {{ busy === 'write' ? 'Writing…' : 'Write' }}
-        </button>
-        <button type="button" class="adm-btn adm-btn-small" @click="run('rewrite')">
-          {{ busy === 'rewrite' ? 'Rewriting…' : 'Rewrite' }}
-        </button>
+        <Button
+          icon="pi pi-pencil"
+          :label="busy === 'write' ? 'Writing…' : 'Write'"
+          :loading="busy === 'write'"
+          size="small"
+          severity="secondary"
+          outlined
+          :pt="HIDE_ICON"
+          @click="run('write')"
+        />
+        <Button
+          icon="pi pi-refresh"
+          :label="busy === 'rewrite' ? 'Rewriting…' : 'Rewrite'"
+          :loading="busy === 'rewrite'"
+          size="small"
+          severity="secondary"
+          outlined
+          :pt="HIDE_ICON"
+          @click="run('rewrite')"
+        />
       </template>
-      <button type="button" class="adm-btn adm-btn-small" @click="image(false)">
-        {{ busy === 'image' ? 'Generating…' : 'Generate image' }}
-      </button>
-      <button type="button" class="adm-btn adm-btn-small" @click="image(true)">
-        {{ busy === 'motion' ? 'Animating… (1–3 min)' : 'Generate GIF' }}
-      </button>
-      <button v-if="before" type="button" class="adm-btn adm-btn-small" @click="undo">Undo</button>
+      <Button
+        icon="pi pi-image"
+        :label="busy === 'image' ? 'Generating…' : 'Generate image'"
+        :loading="busy === 'image'"
+        size="small"
+        severity="secondary"
+        outlined
+        :pt="HIDE_ICON"
+        @click="image(false)"
+      />
+      <Button
+        icon="pi pi-video"
+        :label="busy === 'motion' ? 'Animating… (1–3 min)' : 'Generate GIF'"
+        :loading="busy === 'motion'"
+        size="small"
+        severity="secondary"
+        outlined
+        :pt="HIDE_ICON"
+        @click="image(true)"
+      />
+      <Button v-if="before" icon="pi pi-undo" label="Undo" size="small" text :pt="HIDE_ICON" @click="undo" />
     </div>
   </fieldset>
 </template>
+
+<style scoped>
+.ai {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+}
+/* A legend can't be laid out like a heading; floated, it sits inside the card as one. */
+.ai-legend {
+  display: flex;
+  float: left;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  padding: 0;
+  color: var(--app-heading);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.ai-legend + * {
+  clear: both;
+}
+.ai-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0;
+  font-size: 1rem;
+}
+.ai-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.ai-field > span {
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.ai-field :deep(textarea.p-textarea) {
+  padding: var(--p-inputtext-padding-y) var(--p-inputtext-padding-x);
+  border-color: var(--p-inputtext-border-color);
+  font-size: 0.9375rem;
+}
+.ai-field :deep(textarea.p-textarea:enabled:focus) {
+  border-color: var(--p-inputtext-focus-border-color);
+}
+.ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+</style>
