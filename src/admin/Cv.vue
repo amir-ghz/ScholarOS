@@ -10,6 +10,11 @@ import {
   watch,
   type FunctionalComponent,
 } from 'vue';
+import Button from 'primevue/button';
+import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';
+import Select from 'primevue/select';
+import Textarea from 'primevue/textarea';
 import AdminShell from './AdminShell.vue';
 import AdminTabLinks from './AdminTabLinks.vue';
 import DocBanners from './DocBanners.vue';
@@ -121,6 +126,7 @@ const KINDS: [CvEntryKind, string][] = [
   ['text', 'Text'],
   ['publication', 'Publication'],
 ];
+const KIND_OPTIONS = KINDS.map(([value, label]) => ({ value, label }));
 
 const sections = computed<Record<string, unknown[]>>(() => doc.current?.cv.sections ?? {});
 const keys = computed(() => Object.keys(sections.value));
@@ -408,20 +414,21 @@ async function generatePdf() {
 <template>
   <AdminShell :ctx="ctx" active="cv" title="CV" :dirty="doc.dirty">
     <template #actions>
-      <span v-if="pdf" class="adm-muted"
-        >{{ pdfLabel }} · <a :href="pdf.url" target="_blank" rel="noopener">run</a></span
-      >
-      <button type="button" class="adm-btn" @click="importing = true">Import YAML</button>
-      <span v-if="pdfMeta" class="adm-muted"
+      <span v-if="pdf" class="cv-pdf">{{ pdfLabel }} · <a :href="pdf.url" target="_blank" rel="noopener">run</a></span>
+      <Button icon="pi pi-file-import" label="Import YAML" severity="secondary" outlined @click="importing = true" />
+      <span v-if="pdfMeta" class="cv-pdf"
         >PDF: {{ new Date(pdfMeta.lastGenerated).toLocaleString() }} ·
         <a :href="pdfMeta.pdfPath" target="_blank" rel="noopener">open</a></span
       >
-      <button type="button" class="adm-btn" :disabled="generating" @click="generatePdf">
-        {{ generating ? 'Generating…' : 'Generate PDF' }}
-      </button>
-      <button type="button" class="adm-btn adm-btn-primary" :disabled="doc.saving || !doc.current" @click="publish">
-        Publish
-      </button>
+      <Button
+        icon="pi pi-file-pdf"
+        :label="generating ? 'Generating…' : 'Generate PDF'"
+        severity="secondary"
+        outlined
+        :loading="generating"
+        @click="generatePdf"
+      />
+      <Button icon="pi pi-check" label="Publish" :disabled="doc.saving || !doc.current" @click="publish" />
     </template>
     <AdminTabLinks
       v-if="ctx.mode !== 'static'"
@@ -432,92 +439,156 @@ async function generatePdf() {
       ]"
     />
 
-    <p v-if="upload.enabled && !turnOffUpload" class="adm-banner">
-      A raw RenderCV upload (config/cv-upload.yml) is turned on and replaces this CV on the site. Importing YAML here
-      turns the upload off.
-    </p>
-    <p v-if="turnOffUpload" class="adm-banner">Publishing will turn off the raw RenderCV upload.</p>
-    <p v-if="pending.length" class="adm-banner">
-      {{ pending.length }} publication(s) from the import will be saved to Publications when you publish.
-    </p>
-    <DocBanners
-      :draft="!!doc.draft"
-      :path="'config/cv.yml'"
-      :version="doc.version"
-      :conflict="doc.conflict"
-      :stale="doc.draftStale ? doc.draftChanges : null"
-      @restore="doc.restore()"
-      @discard="discardDraft"
-      @reload="reloadCv"
-    />
+    <div class="cv-notes">
+      <p v-if="upload.enabled && !turnOffUpload" class="cv-note">
+        <i class="pi pi-info-circle" aria-hidden="true" />
+        <span
+          >A raw RenderCV upload (config/cv-upload.yml) is turned on and replaces this CV on the site. Importing YAML
+          here turns the upload off.</span
+        >
+      </p>
+      <p v-if="turnOffUpload" class="cv-note">
+        <i class="pi pi-info-circle" aria-hidden="true" />
+        <span>Publishing will turn off the raw RenderCV upload.</span>
+      </p>
+      <p v-if="pending.length" class="cv-note">
+        <i class="pi pi-info-circle" aria-hidden="true" />
+        <span>{{ pending.length }} publication(s) from the import will be saved to Publications when you publish.</span>
+      </p>
+      <DocBanners
+        :draft="!!doc.draft"
+        :path="'config/cv.yml'"
+        :version="doc.version"
+        :conflict="doc.conflict"
+        :stale="doc.draftStale ? doc.draftChanges : null"
+        @restore="doc.restore()"
+        @discard="discardDraft"
+        @reload="reloadCv"
+      />
+    </div>
 
-    <div v-if="doc.current" class="adm-cols3">
-      <section aria-label="Sections" class="adm-form">
-        <ul class="adm-pick">
+    <div v-if="doc.current" class="cv-cols">
+      <section aria-label="Sections" class="card cv-sections">
+        <div class="card-head cv-head">
+          <h2 class="card-title"><i class="pi pi-list text-primary" aria-hidden="true" /> Sections</h2>
+        </div>
+        <ul class="cv-pick">
           <li v-for="key in keys" :key="key">
             <button type="button" :aria-current="section === key" @click="selectSection(key)">
-              <span>{{ sectionLabel(key) }}</span
-              ><span class="adm-muted">{{ sections[key].length }}</span>
+              <span class="cv-pick-label">{{ sectionLabel(key) }}</span
+              ><span class="cv-count">{{ sections[key].length }}</span>
             </button>
           </li>
         </ul>
-        <ul class="adm-pick">
+        <ul class="cv-pick cv-pick-link">
           <li>
             <a :href="`/${ctx.adminPath}/publications`"
-              ><span>Publications collection ↗</span><span class="adm-muted">{{ publicationCount }}</span></a
+              ><span class="cv-pick-label">Publications collection ↗</span
+              ><span class="cv-count">{{ publicationCount }}</span></a
             >
           </li>
         </ul>
-        <div class="adm-list-row">
-          <input
+        <div class="cv-add">
+          <InputText
             v-model="newSection"
             type="text"
+            size="small"
             placeholder="New section"
             aria-label="New section name"
+            fluid
             @keydown.enter="addSection"
           />
-          <button type="button" class="adm-btn adm-btn-small" @click="addSection">Add</button>
+          <Button icon="pi pi-plus" label="Add" size="small" severity="secondary" outlined @click="addSection" />
         </div>
-        <div v-if="section" class="adm-actions">
-          <button type="button" class="adm-btn adm-btn-small" @click="renameSection">Rename</button>
-          <button type="button" class="adm-btn adm-btn-small adm-btn-danger" @click="deleteSection">
-            {{ confirmSection ? 'Click again to delete' : 'Delete section' }}
-          </button>
+        <div v-if="section" class="cv-actions">
+          <Button
+            icon="pi pi-pencil"
+            label="Rename"
+            size="small"
+            severity="secondary"
+            outlined
+            @click="renameSection"
+          />
+          <Button
+            icon="pi pi-trash"
+            :label="confirmSection ? 'Click again to delete' : 'Delete section'"
+            size="small"
+            severity="danger"
+            :outlined="!confirmSection"
+            @click="deleteSection"
+          />
         </div>
       </section>
 
-      <section aria-label="Entries" class="adm-form">
-        <ul class="adm-pick">
+      <section aria-label="Entries" class="card cv-entries">
+        <div class="card-head cv-head">
+          <h2 class="card-title">
+            <i class="pi pi-bars text-primary" aria-hidden="true" />
+            {{ section ? sectionLabel(section) : 'Entries' }}
+          </h2>
+        </div>
+        <ul class="cv-pick">
           <li v-for="(e, i) in entries" :key="i">
             <button type="button" :aria-current="index === i" @click="selectEntry(i)">
-              <span>{{ plainText(cvEntryPreview(e).title) || '(untitled)' }}</span>
-              <span v-if="(e as any)?.visible === false" class="adm-muted">hidden</span>
+              <span class="cv-pick-label">{{ plainText(cvEntryPreview(e).title) || '(untitled)' }}</span>
+              <span v-if="(e as any)?.visible === false" class="chip chip-secondary">hidden</span>
             </button>
           </li>
         </ul>
-        <p v-if="section && !entries.length" class="adm-muted">No entries yet.</p>
-        <div v-if="section" class="adm-actions">
-          <select v-if="!entries.length" v-model="newKind" aria-label="Entry type">
-            <option v-for="[k, label] in KINDS" :key="k" :value="k">{{ label }}</option>
-          </select>
-          <button type="button" class="adm-btn adm-btn-small" @click="addEntry">+ Entry</button>
+        <p v-if="section && !entries.length" class="cv-empty">No entries yet.</p>
+        <div v-if="section" class="cv-actions">
+          <Select
+            v-if="!entries.length"
+            v-model="newKind"
+            :options="KIND_OPTIONS"
+            option-label="label"
+            option-value="value"
+            size="small"
+            aria-label="Entry type"
+            fluid
+          />
+          <Button label="+ Entry" size="small" @click="addEntry" />
           <template v-if="index !== null">
-            <button type="button" class="adm-btn adm-btn-small" aria-label="Move entry up" @click="moveEntry(-1)">
-              ↑
-            </button>
-            <button type="button" class="adm-btn adm-btn-small" aria-label="Move entry down" @click="moveEntry(1)">
-              ↓
-            </button>
-            <button type="button" class="adm-btn adm-btn-small adm-btn-danger" @click="deleteEntry">
-              {{ confirmEntry ? 'Click again to delete' : 'Delete' }}
-            </button>
+            <Button
+              icon="pi pi-arrow-up"
+              size="small"
+              severity="secondary"
+              outlined
+              aria-label="Move entry up"
+              @click="moveEntry(-1)"
+            />
+            <Button
+              icon="pi pi-arrow-down"
+              size="small"
+              severity="secondary"
+              outlined
+              aria-label="Move entry down"
+              @click="moveEntry(1)"
+            />
+            <Button
+              icon="pi pi-trash"
+              :label="confirmEntry ? 'Click again to delete' : 'Delete'"
+              size="small"
+              severity="danger"
+              :outlined="!confirmEntry"
+              @click="deleteEntry"
+            />
           </template>
         </div>
       </section>
 
-      <section aria-label="Entry" class="adm-form" @focusin="onFocusIn" @focusout="onFocusOut" @keydown="onFormatKey">
+      <section
+        aria-label="Entry"
+        class="card cv-entry"
+        @focusin="onFocusIn"
+        @focusout="onFocusOut"
+        @keydown="onFormatKey"
+      >
+        <div class="card-head cv-head">
+          <h2 class="card-title"><i class="pi pi-pen-to-square text-primary" aria-hidden="true" /> Entry</h2>
+        </div>
         <template v-if="entry !== undefined && section && index !== null">
-          <div class="adm-toolbar adm-format-bar" role="toolbar" aria-label="Text formatting">
+          <div class="cv-format" role="toolbar" aria-label="Text formatting">
             <button
               type="button"
               title="Bold (⌘B / Ctrl+B)"
@@ -546,8 +617,9 @@ async function generatePdf() {
               @mousedown.prevent
               @click="applyFormat('link')"
             >
-              Link
+              <i class="pi pi-link" aria-hidden="true" /> Link
             </button>
+            <span class="cv-format-sep" aria-hidden="true" />
             <select
               v-model="font"
               title="Font of the selected text"
@@ -560,16 +632,16 @@ async function generatePdf() {
               <option v-for="[key, f] in FONTS" :key="key" :value="key">{{ f.label }}</option>
             </select>
           </div>
-          <label v-if="kind === 'text'" class="adm-field">
+          <label v-if="kind === 'text'" class="cv-field">
             <span>Text</span>
-            <textarea :value="String(entry)" rows="5" @input="setText(($event.target as HTMLTextAreaElement).value)" />
+            <Textarea :model-value="String(entry)" rows="5" fluid @update:model-value="setText" />
           </label>
           <template v-else>
-            <label class="adm-check">
-              <input
-                type="checkbox"
-                :checked="(entry as any).visible !== false"
-                @change="setVisible(($event.target as HTMLInputElement).checked)"
+            <label class="cv-check">
+              <Checkbox
+                binary
+                :model-value="(entry as any).visible !== false"
+                @update:model-value="setVisible($event)"
               />
               Visible
             </label>
@@ -581,41 +653,50 @@ async function generatePdf() {
               :owner="ctx.siteName"
             />
           </template>
-          <section class="adm-card" aria-label="Preview">
-            <strong v-if="entryPreview.title"><CvInline :text="entryPreview.title" /></strong>
-            <strong v-else>(untitled)</strong>
-            <div v-if="entryPreview.org" class="adm-muted"><CvInline :text="entryPreview.org" /></div>
-            <div v-if="entryPreview.when" class="adm-muted">{{ entryPreview.when }}</div>
+          <section class="cv-preview" aria-label="Preview">
+            <strong v-if="entryPreview.title" class="cv-preview-title"><CvInline :text="entryPreview.title" /></strong>
+            <strong v-else class="cv-preview-title">(untitled)</strong>
+            <div v-if="entryPreview.org" class="cv-preview-sub"><CvInline :text="entryPreview.org" /></div>
+            <div v-if="entryPreview.when" class="cv-preview-sub">{{ entryPreview.when }}</div>
             <ul v-if="entryPreview.points.length">
               <li v-for="(point, i) in entryPreview.points" :key="i"><CvInline :text="point" /></li>
             </ul>
           </section>
         </template>
-        <p v-else class="adm-muted">Choose an entry.</p>
+        <div v-else class="empty-state">
+          <i class="pi pi-pen-to-square" aria-hidden="true" />
+          <p class="cv-empty">Choose an entry.</p>
+        </div>
       </section>
     </div>
 
     <div
       v-if="importing"
       v-dialog
-      class="adm-modal"
+      class="cv-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="adm-import-title"
       @keydown.esc="closeImport"
     >
-      <div>
-        <h2 id="adm-import-title" class="adm-h2">Import a RenderCV YAML file</h2>
-        <p class="adm-muted">
+      <div class="cv-modal-box">
+        <h2 id="adm-import-title" class="card-title">Import a RenderCV YAML file</h2>
+        <p class="cv-modal-text">
           The import replaces the CV in this editor and moves publication sections into Publications. Papers that
           already exist are updated, not duplicated. Nothing is saved until you click Publish.
         </p>
-        <input type="file" accept=".yaml,.yml,text/yaml" aria-label="RenderCV file" @change="readFile" />
-        <label class="adm-field">
+        <input
+          type="file"
+          class="cv-file"
+          accept=".yaml,.yml,text/yaml"
+          aria-label="RenderCV file"
+          @change="readFile"
+        />
+        <label class="cv-field">
           <span>Or paste the YAML</span>
-          <textarea v-model="importText" rows="10" />
+          <Textarea v-model="importText" rows="10" fluid class="cv-mono" />
         </label>
-        <div v-if="preview" class="adm-card">
+        <div v-if="preview" class="cv-import-preview">
           <p>
             <strong>{{ preview.cv.cv.name }}</strong>
           </p>
@@ -629,20 +710,331 @@ async function generatePdf() {
             >.
           </p>
         </div>
-        <div class="adm-actions">
-          <button
-            v-if="!preview"
-            type="button"
-            class="adm-btn adm-btn-primary"
-            :disabled="!importText.trim()"
-            @click="previewImport"
-          >
-            Preview
-          </button>
-          <button v-else type="button" class="adm-btn adm-btn-primary" @click="applyImport">Apply to editor</button>
-          <button type="button" class="adm-btn" @click="closeImport">Cancel</button>
+        <div class="cv-modal-actions">
+          <Button v-if="!preview" label="Preview" :disabled="!importText.trim()" @click="previewImport" />
+          <Button v-else label="Apply to editor" @click="applyImport" />
+          <Button label="Cancel" severity="secondary" outlined @click="closeImport" />
         </div>
       </div>
     </div>
   </AdminShell>
 </template>
+
+<style scoped>
+.cv-pdf {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.cv-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-block: 1.25rem;
+}
+.cv-notes:empty {
+  display: none;
+}
+.cv-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--c-warning) 12%, var(--app-card));
+  box-shadow: inset 4px 0 0 var(--c-warning);
+  color: var(--app-heading);
+  font-size: 0.875rem;
+}
+.cv-note .pi {
+  margin-block-start: 0.2rem;
+  color: #b56605;
+}
+:global(.app-dark) .cv-note .pi {
+  color: #f7a23a;
+}
+
+/* Three cards: sections, the open section's entries, the open entry. */
+.cv-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 18rem) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 1399.98px) {
+  .cv-cols {
+    grid-template-columns: minmax(0, 17rem) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+  }
+  .cv-entry {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+}
+@media (max-width: 767.98px) {
+  .cv-cols {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+  }
+  .cv-entry {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+.cv-cols > .card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+.cv-head {
+  margin: 0;
+}
+.cv-head .card-title {
+  font-size: 1rem;
+}
+
+.cv-pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.cv-pick button,
+.cv-pick a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5625rem 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--app-heading);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: start;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cv-pick button:hover,
+.cv-pick a:hover {
+  background: var(--app-menu-hover);
+  text-decoration: none;
+}
+.cv-pick button[aria-current='true'] {
+  background: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
+  color: var(--p-primary-color);
+}
+.cv-pick-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cv-count {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: 1.5rem;
+  height: 1.375rem;
+  padding: 0 0.375rem;
+  border-radius: 999px;
+  background: var(--app-canvas);
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.cv-pick button[aria-current='true'] .cv-count {
+  background: var(--p-primary-color);
+  color: #fff;
+}
+.cv-pick-link {
+  padding-block-start: 0.75rem;
+  border-top: 1px dashed var(--app-border);
+}
+.cv-pick-link a {
+  color: var(--p-primary-color);
+}
+.cv-add {
+  display: flex;
+  gap: 0.5rem;
+}
+.cv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.cv-empty {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.875rem;
+}
+
+/* The entry's formatting bar (Conca's editor toolbar). */
+.cv-format {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+}
+.cv-format button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--app-heading);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.cv-format button:hover:not(:disabled) {
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-card);
+}
+.cv-format button:disabled,
+.cv-format select:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.cv-format .pi {
+  font-size: 0.8125rem;
+}
+.cv-format-sep {
+  width: 1px;
+  height: 1.25rem;
+  margin-inline: 0.25rem;
+  background: var(--app-border);
+}
+.cv-format select {
+  width: auto;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.375rem;
+  background: var(--app-card);
+  color: var(--app-heading);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.cv-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.cv-field > span:first-child {
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.cv-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.cv-preview {
+  padding: 1rem 1.25rem;
+  border: 1px dashed color-mix(in srgb, var(--p-primary-color) 35%, var(--app-border));
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--p-primary-color) 4%, var(--app-card));
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+}
+.cv-preview-title {
+  display: block;
+  font-weight: 600;
+}
+.cv-preview-sub {
+  color: var(--app-muted);
+  font-size: 0.875rem;
+}
+.cv-preview ul {
+  margin: 0.5rem 0 0;
+  list-style: disc;
+  padding-inline-start: 1.25rem;
+  color: var(--app-body);
+  font-size: 0.875rem;
+}
+.cv-entry .empty-state p {
+  margin: 0;
+}
+
+/* Import dialog. */
+.cv-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(25 24 34 / 0.45);
+  backdrop-filter: blur(2px);
+}
+.cv-modal-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.5rem;
+  border-radius: var(--app-radius-card);
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-float);
+}
+.cv-modal-text {
+  margin: 0;
+  color: var(--app-body);
+  font-size: 0.875rem;
+}
+.cv-file {
+  padding: 0.75rem;
+  border: 1px dashed var(--app-border);
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+  color: var(--app-body);
+  font: inherit;
+  font-size: 0.875rem;
+}
+.cv-mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+.cv-import-preview {
+  padding: 1rem;
+  border-radius: 0.625rem;
+  background: var(--app-canvas);
+  color: var(--app-heading);
+  font-size: 0.875rem;
+}
+.cv-import-preview p,
+.cv-import-preview ul {
+  margin: 0;
+}
+.cv-import-preview ul {
+  margin-block: 0.375rem;
+  list-style: disc;
+  padding-inline-start: 1.25rem;
+}
+.cv-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+</style>

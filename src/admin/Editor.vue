@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
 import AdminShell from './AdminShell.vue';
 import { api, committed, report, toast, toastError } from './api';
 import { formatDateTime, relativeTime } from './dates';
@@ -436,137 +438,153 @@ onBeforeUnmount(() => {
     <template #actions>
       <!-- While a setup notice shows, Start and Start over can't work: the notice's own action is the way on. -->
       <template v-if="!notice && status">
-        <button
+        <Button
           v-if="status.state === 'none' || status.state === 'stopped'"
-          type="button"
-          class="adm-btn adm-btn-primary"
+          :icon="status.state === 'stopped' ? 'pi pi-play' : 'pi pi-power-off'"
+          :label="busy === 'start' ? 'Starting…' : status.state === 'stopped' ? 'Resume' : 'Start'"
+          :loading="busy === 'start'"
           :disabled="!!busy"
           @click="start"
-        >
-          {{ busy === 'start' ? 'Starting…' : status.state === 'stopped' ? 'Resume' : 'Start' }}
-        </button>
-        <button
+        />
+        <Button
           v-if="status.state === 'stopped'"
-          type="button"
-          class="adm-btn"
+          label="Start over…"
+          severity="secondary"
+          outlined
           :disabled="!!busy"
           @click="confirming = 'over'"
-        >
-          Start over…
-        </button>
+        />
       </template>
       <details
         v-if="ready"
         ref="sessionEl"
-        class="adm-editor-session"
+        class="se-session"
         @keydown.esc="closeSession"
         @focusout="onSessionFocusOut"
       >
-        <summary class="adm-btn">Session</summary>
-        <div class="adm-editor-session-menu">
-          <button
-            type="button"
-            class="adm-btn"
+        <summary>Session</summary>
+        <div class="se-session-menu">
+          <Button
+            icon="pi pi-pause"
+            label="Pause"
+            severity="secondary"
+            text
             :disabled="!!busy || running"
             @click="
               closeSession();
               pause();
             "
-          >
-            Pause
-          </button>
-          <button
+          />
+          <Button
             v-if="!notice"
-            type="button"
-            class="adm-btn"
+            icon="pi pi-replay"
+            label="Start over…"
+            severity="secondary"
+            text
             :disabled="!!busy || running"
             @click="
               closeSession();
               confirming = 'over';
             "
-          >
-            Start over…
-          </button>
-          <p v-if="running" class="adm-muted">Stop the agent first.</p>
+          />
+          <p v-if="running">Stop the agent first.</p>
         </div>
       </details>
     </template>
 
-    <div class="adm-editor-page" :class="{ 'is-review': reviewing }">
-      <component :is="intro ? 'div' : 'details'" class="adm-editor-how">
+    <div class="se" :class="{ 'is-review': reviewing }">
+      <component :is="intro ? 'div' : 'details'" class="card se-how" :class="{ 'is-intro': intro }">
         <summary v-if="!intro">How this works</summary>
-        <p class="adm-editor-intro">
-          Describe a change to your site’s design or pages. A coding agent makes it in a private copy of the site, you
-          check it in the preview, and {{ publisher ? 'Publish' : 'a publisher' }} puts it on your live site. The admin,
-          sign-in, server code and dependencies are off limits.
-        </p>
-        <p v-if="!notice && publisher" class="adm-muted">
-          The agent is
-          <template v-if="ready">{{ agentLabel(ready.provider) }}</template
-          ><template v-else>your writing provider’s coding tool</template>, set on the
-          <a :href="ai">Integrations screen</a>. Each run uses Vercel Sandbox time on your Vercel account and is billed
-          by {{ ready ? providerLabel(ready.provider) : 'your writing provider' }} like any use of its coding tool.
-        </p>
-        <p v-if="ready && !notice" class="adm-muted">
-          Under Session, Pause keeps your unpublished changes for later and Start over throws them away.
-        </p>
+        <div class="se-how-body">
+          <span class="se-icon tint-primary" aria-hidden="true"><i class="pi pi-sparkles" /></span>
+          <div class="se-how-text">
+            <p class="se-intro">
+              Describe a change to your site’s design or pages. A coding agent makes it in a private copy of the site,
+              you check it in the preview, and {{ publisher ? 'Publish' : 'a publisher' }} puts it on your live site.
+              The admin, sign-in, server code and dependencies are off limits.
+            </p>
+            <p v-if="!notice && publisher" class="se-muted">
+              The agent is
+              <template v-if="ready">{{ agentLabel(ready.provider) }}</template
+              ><template v-else>your writing provider’s coding tool</template>, set on the
+              <a :href="ai">Integrations screen</a>. Each run uses Vercel Sandbox time on your Vercel account and is
+              billed by {{ ready ? providerLabel(ready.provider) : 'your writing provider' }} like any use of its coding
+              tool.
+            </p>
+            <p v-if="ready && !notice" class="se-muted">
+              Under Session, Pause keeps your unpublished changes for later and Start over throws them away.
+            </p>
+          </div>
+        </div>
       </component>
 
-      <p v-if="!status && !loadError" class="adm-muted" role="status">Loading the Site editor…</p>
+      <p v-if="!status && !loadError" class="se-muted" role="status">Loading the Site editor…</p>
 
-      <div v-if="loadError" class="adm-banner adm-banner-error" role="alert">
+      <div v-if="loadError" class="se-banner is-danger" role="alert">
         <span>The Site editor’s status couldn’t load: {{ loadError }}</span>
-        <button type="button" class="adm-btn adm-btn-small" @click="load">Retry</button>
+        <Button label="Retry" size="small" severity="secondary" outlined @click="load" />
       </div>
 
       <!-- Setup is the publisher's job: anyone else gets one line (and Run its id for aria-describedby). -->
-      <p v-if="notice && !publisher && notice.action !== 'retry'" class="adm-banner adm-editor-note">
+      <p v-if="notice && !publisher && notice.action !== 'retry'" class="se-banner">
         <span id="adm-editor-notice-title">The Site editor isn’t set up yet. Ask the site’s publisher.</span>
       </p>
-      <section v-else-if="notice" class="adm-banner adm-editor-notice" aria-labelledby="adm-editor-notice-title">
-        <div class="adm-editor-notice-text">
-          <h2 id="adm-editor-notice-title" class="adm-h2">{{ notice.title }}</h2>
+      <section v-else-if="notice" class="card se-notice" aria-labelledby="adm-editor-notice-title">
+        <span class="se-icon tint-warning" aria-hidden="true"><i class="pi pi-exclamation-triangle" /></span>
+        <div class="se-notice-text">
+          <h2 id="adm-editor-notice-title" class="card-title">{{ notice.title }}</h2>
           <p id="adm-editor-notice-body">{{ notice.body }}</p>
           <template v-if="notice.steps">
-            <ol class="adm-editor-steps">
+            <ol class="se-steps">
               <li v-for="(step, i) in stepItems(notice.steps)" :key="i">{{ step }}</li>
             </ol>
-            <p class="adm-muted">Only the person who manages the site’s hosting can do this. {{ README }}</p>
+            <p class="se-muted">Only the person who manages the site’s hosting can do this. {{ README }}</p>
           </template>
-          <details v-if="notice.body !== notice.raw">
+          <details v-if="notice.body !== notice.raw" class="se-tech">
             <summary>Technical details</summary>
-            <pre class="adm-pre">{{ notice.raw }}</pre>
+            <pre class="se-pre">{{ notice.raw }}</pre>
           </details>
         </div>
-        <button v-if="notice.action === 'copy'" type="button" class="adm-btn" @click="copySteps">
-          Copy setup steps
-        </button>
-        <a v-else-if="notice.action === 'ai'" class="adm-btn" :href="ai">Open the Integrations screen</a>
-        <button v-else type="button" class="adm-btn" @click="load">Try again</button>
+        <Button
+          v-if="notice.action === 'copy'"
+          icon="pi pi-copy"
+          label="Copy setup steps"
+          severity="secondary"
+          outlined
+          @click="copySteps"
+        />
+        <Button v-else-if="notice.action === 'ai'" as="a" :href="ai" label="Open the Integrations screen" />
+        <Button v-else icon="pi pi-refresh" label="Try again" severity="secondary" outlined @click="load" />
       </section>
 
-      <div v-if="line || (ready?.published && !publishedPanel && !reviewing)" class="adm-editor-status">
-        <p v-if="line" class="adm-editor-line" :class="`is-${tone}`" role="status">
+      <div v-if="line || (ready?.published && !publishedPanel && !reviewing)" class="card se-status">
+        <p v-if="line" class="se-line" :class="`is-${tone}`" role="status">
           {{ line }}
         </p>
-        <details v-if="failed" class="adm-editor-tech">
+        <details v-if="failed" class="se-tech">
           <summary>Technical details</summary>
-          <pre class="adm-pre">{{ failed }}</pre>
+          <pre class="se-pre">{{ failed }}</pre>
         </details>
-        <div v-if="run && outcome && !busy && (outcome === 'failed' || !files.length)" class="adm-actions">
-          <button
+        <div v-if="run && outcome && !busy && (outcome === 'failed' || !files.length)" class="se-row">
+          <Button
             v-if="outcome === 'failed'"
-            type="button"
-            class="adm-btn adm-btn-primary"
+            icon="pi pi-replay"
+            label="Try again"
+            size="small"
             :disabled="!!ready?.blocked"
             @click="submit(run.prompt)"
-          >
-            Try again
-          </button>
-          <button type="button" class="adm-btn" @click="editRequest">Edit request</button>
+          />
+          <Button
+            icon="pi pi-pencil"
+            label="Edit request"
+            size="small"
+            severity="secondary"
+            outlined
+            @click="editRequest"
+          />
         </div>
-        <div v-if="ready?.published && !publishedPanel && !reviewing" class="adm-editor-last">
-          <p class="adm-muted">
+        <div v-if="ready?.published && !publishedPanel && !reviewing" class="se-row se-last">
+          <p class="se-muted">
             Last published
             <time :datetime="ready.published.at" :title="formatDateTime(ready.published.at)">{{
               relativeTime(ready.published.at, now)
@@ -577,312 +595,359 @@ onBeforeUnmount(() => {
             >
             <template v-else>{{ ready.published.id.slice(0, 7) }}</template>
           </p>
-          <button
+          <Button
             v-if="undoable && publisher"
-            type="button"
-            class="adm-btn adm-btn-small"
+            label="Undo this publish…"
+            size="small"
+            severity="secondary"
+            outlined
             :disabled="!!busy"
             @click="confirming = 'undo'"
-          >
-            Undo this publish…
-          </button>
+          />
         </div>
       </div>
 
       <template v-if="ready">
-        <section v-if="published && publishedPanel" class="adm-card adm-editor-done" aria-labelledby="adm-editor-done">
-          <h2 id="adm-editor-done" ref="doneEl" class="adm-h2" tabindex="-1">Published</h2>
-          <p
-            class="adm-editor-line"
-            :class="deploying ? 'is-working' : deployed || !published.commit ? 'is-done' : 'is-ready'"
-            role="status"
-          >
-            {{ live }}
-          </p>
-          <div class="adm-actions">
-            <a class="adm-btn" href="/" target="_blank" rel="noopener">
-              View live site<span class="adm-visually-hidden"> in a new tab</span> <span aria-hidden="true">↗</span>
-            </a>
-            <button
-              v-if="undoable && publisher"
-              type="button"
-              class="adm-btn"
-              :disabled="!!busy"
-              @click="confirming = 'undo'"
+        <section v-if="published && publishedPanel" class="card se-done" aria-labelledby="adm-editor-done">
+          <span class="se-icon tint-success" aria-hidden="true"><i class="pi pi-check" /></span>
+          <div class="se-done-text">
+            <h2 id="adm-editor-done" ref="doneEl" class="card-title" tabindex="-1">Published</h2>
+            <p
+              class="se-line"
+              :class="deploying ? 'is-working' : deployed || !published.commit ? 'is-done' : 'is-ready'"
+              role="status"
             >
-              Undo this publish…
-            </button>
-            <a v-if="published.commit?.url" :href="published.commit.url" target="_blank" rel="noopener">
-              See the change on GitHub ({{ published.commit.id.slice(0, 7) }})<span class="adm-visually-hidden">
-                in a new tab</span
-              >
-            </a>
+              {{ live }}
+            </p>
+            <div class="se-row">
+              <Button as="a" href="/" target="_blank" rel="noopener" severity="secondary" outlined size="small">
+                View live site<span class="adm-visually-hidden"> in a new tab</span> <span aria-hidden="true">↗</span>
+              </Button>
+              <Button
+                v-if="undoable && publisher"
+                label="Undo this publish…"
+                size="small"
+                severity="secondary"
+                outlined
+                :disabled="!!busy"
+                @click="confirming = 'undo'"
+              />
+              <a v-if="published.commit?.url" :href="published.commit.url" target="_blank" rel="noopener">
+                See the change on GitHub ({{ published.commit.id.slice(0, 7) }})<span class="adm-visually-hidden">
+                  in a new tab</span
+                >
+              </a>
+            </div>
+            <p v-if="!undoable" class="se-muted">To undo it, ask for the change back and publish again.</p>
           </div>
-          <p v-if="!undoable" class="adm-muted">To undo it, ask for the change back and publish again.</p>
         </section>
 
-        <div class="adm-editor-work" :class="{ 'is-review': reviewing }">
-          <div class="adm-editor-rail">
-            <section v-if="reviewing" class="adm-editor-review" aria-labelledby="adm-editor-changes">
-              <h2 id="adm-editor-changes" ref="reviewEl" class="adm-h2" tabindex="-1">Review the changes</h2>
-              <p v-if="changedOn.every || changedOn.pages.length" class="adm-editor-pages">
-                Changed on: {{ changedOn.every ? `every page${changedOn.pages.length ? ', including' : ''}` : '' }}
-                <template v-for="(p, i) in changedOn.pages" :key="`${p.path} ${p.label}`">
-                  <template v-if="i">, </template>
-                  <a
-                    :href="previewHref(p.path)"
-                    :aria-current="p.path === previewPath ? 'true' : undefined"
-                    @click.prevent="showPage(p.path)"
-                    >{{ p.label }}</a
-                  >
-                </template>
-              </p>
-              <div v-if="ready.requests.length" class="adm-editor-group">
-                <h3 class="adm-editor-h3">{{ others ? 'Asked for' : 'You asked for' }}</h3>
-                <ol class="adm-editor-requests">
-                  <li v-for="(r, i) in ready.requests" :key="i">
-                    <p>{{ r.prompt }}</p>
-                    <p v-if="r.by !== ctx.user?.login" class="adm-editor-by" dir="auto">
-                      Asked by {{ r.byName || r.by }}
+        <div class="se-work" :class="{ 'is-review': reviewing }">
+          <div class="se-grid">
+            <div class="se-rail">
+              <div class="card se-chat">
+                <div class="se-chat-head">
+                  <span class="se-avatar tint-primary" aria-hidden="true"><i class="pi pi-sparkles" /></span>
+                  <span class="se-chat-who">
+                    <strong>{{ agentLabel(ready.provider) }}</strong>
+                    <span>{{ ready.model }}</span>
+                  </span>
+                  <span v-if="running" class="se-chat-dot" aria-hidden="true" />
+                </div>
+                <div class="se-chat-body">
+                  <section v-if="reviewing" class="se-review" aria-labelledby="adm-editor-changes">
+                    <h2 id="adm-editor-changes" ref="reviewEl" class="se-h2" tabindex="-1">Review the changes</h2>
+                    <p v-if="changedOn.every || changedOn.pages.length" class="se-pages">
+                      Changed on:
+                      {{ changedOn.every ? `every page${changedOn.pages.length ? ', including' : ''}` : '' }}
+                      <template v-for="(p, i) in changedOn.pages" :key="`${p.path} ${p.label}`">
+                        <template v-if="i">, </template>
+                        <a
+                          :href="previewHref(p.path)"
+                          :aria-current="p.path === previewPath ? 'true' : undefined"
+                          @click.prevent="showPage(p.path)"
+                          >{{ p.label }}</a
+                        >
+                      </template>
                     </p>
-                    <p v-if="r.summary" class="adm-editor-summary">
-                      <span class="adm-editor-summary-label">What changed:</span> {{ r.summary }}
+                    <div v-if="ready.requests.length" class="se-group">
+                      <h3 class="se-h3">{{ others ? 'Asked for' : 'You asked for' }}</h3>
+                      <ol class="se-messages">
+                        <li v-for="(r, i) in ready.requests" :key="i">
+                          <p class="se-bubble is-mine">{{ r.prompt }}</p>
+                          <p v-if="r.by !== ctx.user?.login" class="se-by" dir="auto">
+                            Asked by {{ r.byName || r.by }}
+                          </p>
+                          <p v-if="r.summary" class="se-bubble is-agent">
+                            <span class="se-summary-label">What changed:</span> {{ r.summary }}
+                          </p>
+                        </li>
+                      </ol>
+                      <details v-if="run" class="se-logbox" :open="outcome === 'failed'">
+                        <summary>Agent log</summary>
+                        <pre
+                          ref="logEl"
+                          class="se-pre se-log"
+                          tabindex="0"
+                          aria-label="Agent log"
+                          @scroll.passive="onLogScroll"
+                          >{{ ready.log || 'No output.' }}</pre
+                        >
+                      </details>
+                    </div>
+                    <div v-for="g in groups" :key="g.kind" class="se-group">
+                      <h3 class="se-h3" :class="{ 'is-refused': g.kind === 'refused' }">
+                        {{ g.label }}
+                        <span :class="['chip', g.kind === 'refused' ? 'chip-danger' : 'chip-secondary']">{{
+                          g.files.length
+                        }}</span>
+                      </h3>
+                      <p v-if="g.kind === 'refused'" class="se-muted">
+                        The editor may not change the admin, sign-in, server code, dependencies or build settings. Undo
+                        these files to publish the rest.
+                      </p>
+                      <ul class="se-files">
+                        <li v-for="f in g.files" :key="f.path">
+                          <a
+                            v-if="hunkIds.has(f.path)"
+                            class="se-file"
+                            :href="`#${hunkIds.get(f.path)}`"
+                            @click.prevent="jump(f.path)"
+                            ><code
+                              ><template v-for="(s, i) in segments(f.path)" :key="i">{{ s }}<wbr /></template></code
+                            ><span class="adm-visually-hidden">, show its changes</span></a
+                          >
+                          <code v-else class="se-file"
+                            ><template v-for="(s, i) in segments(f.path)" :key="i">{{ s }}<wbr /></template
+                          ></code>
+                          <span class="se-file-status"
+                            ><span
+                              :class="[
+                                'chip',
+                                f.status === 'added'
+                                  ? 'chip-success'
+                                  : f.status === 'deleted'
+                                    ? 'chip-danger'
+                                    : 'chip-info',
+                              ]"
+                              >{{ FILE_STATUS[f.status] }}</span
+                            ><template v-if="f.binary"> · a file you can’t preview</template></span
+                          >
+                          <Button
+                            v-if="!f.allowed"
+                            size="small"
+                            severity="danger"
+                            outlined
+                            :disabled="!!busy"
+                            @click="revert(f.path)"
+                          >
+                            Undo this file<span class="adm-visually-hidden">: {{ f.path }}</span>
+                          </Button>
+                        </li>
+                      </ul>
+                    </div>
+                  </section>
+
+                  <section
+                    v-if="run && !reviewing"
+                    ref="runEl"
+                    class="se-run"
+                    tabindex="-1"
+                    aria-labelledby="adm-editor-run"
+                  >
+                    <h2 id="adm-editor-run" class="se-h2">Your request</h2>
+                    <p class="se-bubble is-mine">{{ run.prompt }}</p>
+                    <p v-if="run.summary" class="se-bubble is-agent">
+                      <span class="se-summary-label">What the agent said:</span> {{ run.summary }}
                     </p>
-                  </li>
-                </ol>
-                <details v-if="run" class="adm-editor-logbox" :open="outcome === 'failed'">
-                  <summary>Agent log</summary>
-                  <pre
-                    ref="logEl"
-                    class="adm-pre adm-editor-log"
-                    tabindex="0"
-                    aria-label="Agent log"
-                    @scroll.passive="onLogScroll"
-                    >{{ ready.log || 'No output.' }}</pre
-                  >
-                </details>
-              </div>
-              <div v-for="g in groups" :key="g.kind" class="adm-editor-group">
-                <h3 class="adm-editor-h3" :class="{ 'adm-err': g.kind === 'refused' }">
-                  {{ g.label }} <span class="adm-count">{{ g.files.length }}</span>
-                </h3>
-                <p v-if="g.kind === 'refused'" class="adm-muted">
-                  The editor may not change the admin, sign-in, server code, dependencies or build settings. Undo these
-                  files to publish the rest.
-                </p>
-                <ul class="adm-rows adm-editor-files">
-                  <li v-for="f in g.files" :key="f.path">
-                    <a
-                      v-if="hunkIds.has(f.path)"
-                      class="adm-row-main"
-                      :href="`#${hunkIds.get(f.path)}`"
-                      @click.prevent="jump(f.path)"
-                      ><code
-                        ><template v-for="(s, i) in segments(f.path)" :key="i">{{ s }}<wbr /></template></code
-                      ><span class="adm-visually-hidden">, show its changes</span></a
-                    >
-                    <code v-else class="adm-row-main"
-                      ><template v-for="(s, i) in segments(f.path)" :key="i">{{ s }}<wbr /></template
-                    ></code>
-                    <span class="adm-muted"
-                      >{{ FILE_STATUS[f.status] }}<template v-if="f.binary"> · a file you can’t preview</template></span
-                    >
-                    <button
-                      v-if="!f.allowed"
-                      type="button"
-                      class="adm-btn adm-btn-small"
-                      :disabled="!!busy"
-                      @click="revert(f.path)"
-                    >
-                      Undo this file<span class="adm-visually-hidden">: {{ f.path }}</span>
-                    </button>
-                  </li>
-                </ul>
-              </div>
-            </section>
+                    <div v-if="run.running" class="se-row">
+                      <Button
+                        icon="pi pi-stop-circle"
+                        label="Stop"
+                        size="small"
+                        severity="danger"
+                        outlined
+                        :disabled="busy === 'stop'"
+                        @click="stop"
+                      />
+                      <span class="se-elapsed"
+                        >Running for <span class="se-time">{{ timer }}</span></span
+                      >
+                    </div>
+                    <details class="se-logbox" :open="run.running || outcome === 'failed'">
+                      <summary>Agent log</summary>
+                      <pre
+                        ref="logEl"
+                        class="se-pre se-log"
+                        tabindex="0"
+                        aria-label="Agent log"
+                        @scroll.passive="onLogScroll"
+                        >{{ ready.log || 'Waiting for output…' }}</pre
+                      >
+                    </details>
+                  </section>
 
-            <component
-              :is="reviewing ? 'details' : 'div'"
-              v-if="!running"
-              class="adm-editor-ask"
-              v-bind="reviewing ? { open: askOpen } : {}"
-              @toggle="onAskToggle"
-            >
-              <summary v-if="reviewing">Ask for another change</summary>
-              <form class="adm-form" novalidate @submit.prevent="submit()">
-                <div class="adm-field">
-                  <label for="adm-editor-prompt">{{
-                    reviewing ? 'What else should change?' : 'What should change?'
-                  }}</label>
-                  <textarea
-                    id="adm-editor-prompt"
-                    ref="promptEl"
-                    v-model="prompt"
-                    rows="4"
-                    placeholder="Make the header serif and move the news section above publications"
-                    :disabled="!!ready.blocked"
-                    :aria-invalid="promptError ? 'true' : undefined"
-                    :aria-describedby="promptError ? 'adm-editor-prompt-error' : undefined"
-                    @input="promptError = ''"
-                    @keydown="onPromptKey"
-                  />
-                  <p v-if="promptError" id="adm-editor-prompt-error" class="adm-err">{{ promptError }}</p>
+                  <div v-if="!reviewing && !run" class="se-chat-empty" aria-hidden="true">
+                    <i class="pi pi-comments" />
+                  </div>
                 </div>
-                <div class="adm-actions">
-                  <button
-                    type="submit"
-                    class="adm-btn"
-                    :class="{ 'adm-btn-primary': !reviewing }"
-                    :disabled="!!busy || !!ready.blocked"
-                    :aria-describedby="ready.blocked ? 'adm-editor-notice-title' : undefined"
-                    aria-keyshortcuts="Meta+Enter Control+Enter"
-                  >
-                    {{ busy === 'run' ? 'Starting…' : 'Run' }}
-                  </button>
-                  <span class="adm-muted adm-editor-kbd" aria-hidden="true"
-                    ><kbd>{{ shortcut }}</kbd></span
-                  >
-                </div>
-              </form>
-            </component>
 
-            <section
-              v-if="run && !reviewing"
-              ref="runEl"
-              class="adm-card adm-editor-run"
-              tabindex="-1"
-              aria-labelledby="adm-editor-run"
-            >
-              <h2 id="adm-editor-run" class="adm-h2">Your request</h2>
-              <p class="adm-editor-request">{{ run.prompt }}</p>
-              <p v-if="run.summary" class="adm-editor-summary">
-                <span class="adm-editor-summary-label">What the agent said:</span> {{ run.summary }}
-              </p>
-              <div v-if="run.running" class="adm-actions">
-                <button type="button" class="adm-btn" :disabled="busy === 'stop'" @click="stop">Stop</button>
-                <span class="adm-editor-elapsed"
-                  >Running for <span class="adm-editor-time">{{ timer }}</span></span
+                <component
+                  :is="reviewing ? 'details' : 'div'"
+                  v-if="!running"
+                  class="se-ask"
+                  v-bind="reviewing ? { open: askOpen } : {}"
+                  @toggle="onAskToggle"
                 >
+                  <summary v-if="reviewing">Ask for another change</summary>
+                  <form novalidate @submit.prevent="submit()">
+                    <label for="adm-editor-prompt" class="se-ask-label">{{
+                      reviewing ? 'What else should change?' : 'What should change?'
+                    }}</label>
+                    <div class="se-composer">
+                      <textarea
+                        id="adm-editor-prompt"
+                        ref="promptEl"
+                        v-model="prompt"
+                        rows="3"
+                        placeholder="Make the header serif and move the news section above publications"
+                        :disabled="!!ready.blocked"
+                        :aria-invalid="promptError ? 'true' : undefined"
+                        :aria-describedby="promptError ? 'adm-editor-prompt-error' : undefined"
+                        @input="promptError = ''"
+                        @keydown="onPromptKey"
+                      />
+                      <div class="se-composer-bar">
+                        <span class="se-kbd" aria-hidden="true"
+                          ><kbd>{{ shortcut }}</kbd></span
+                        >
+                        <Button
+                          type="submit"
+                          icon="pi pi-send"
+                          :label="busy === 'run' ? 'Starting…' : 'Run'"
+                          :severity="reviewing ? 'secondary' : undefined"
+                          :outlined="reviewing"
+                          size="small"
+                          :disabled="!!busy || !!ready.blocked"
+                          :aria-describedby="ready.blocked ? 'adm-editor-notice-title' : undefined"
+                          aria-keyshortcuts="Meta+Enter Control+Enter"
+                        />
+                      </div>
+                    </div>
+                    <p v-if="promptError" id="adm-editor-prompt-error" class="se-err">{{ promptError }}</p>
+                  </form>
+                </component>
               </div>
-              <details class="adm-editor-logbox" :open="run.running || outcome === 'failed'">
-                <summary>Agent log</summary>
-                <pre
-                  ref="logEl"
-                  class="adm-pre adm-editor-log"
-                  tabindex="0"
-                  aria-label="Agent log"
-                  @scroll.passive="onLogScroll"
-                  >{{ ready.log || 'Waiting for output…' }}</pre
-                >
-              </details>
-            </section>
 
-            <div
-              v-if="reviewing"
-              class="adm-editor-bar"
-              role="region"
-              :aria-label="publisher ? 'Publish or discard' : 'Changes waiting for review'"
-            >
-              <div class="adm-editor-bar-text">
-                <p id="adm-editor-bar-text">
-                  {{ plural(files.length, 'file changed', 'files changed') }}
-                  <template v-if="refused.length && publisher">
-                    ·
-                    <span class="adm-err"
-                      >undo {{ plural(refused.length, 'refused file', 'refused files') }} to publish</span
-                    >
-                  </template>
-                  <template v-if="unfinished"> · The last run didn’t finish.</template>
-                </p>
-                <p v-if="!publisher" class="adm-editor-bar-review">
-                  Ready for review: a publisher publishes this{{
-                    refused.length ? ' once the refused files are undone' : ''
-                  }}.
-                </p>
-              </div>
-              <button
-                type="button"
-                class="adm-btn"
-                :class="{ 'adm-btn-primary': outcome === 'stopped' }"
-                :disabled="!!busy"
-                @click="confirming = 'discard'"
+              <div
+                v-if="reviewing"
+                class="se-bar"
+                role="region"
+                :aria-label="publisher ? 'Publish or discard' : 'Changes waiting for review'"
               >
-                Discard…
-              </button>
-              <button
-                v-if="publisher"
-                type="button"
-                class="adm-btn"
-                :class="{ 'adm-btn-primary': !unfinished }"
-                :disabled="!!busy || refused.length > 0 || !!ready.blocked"
-                :aria-describedby="refused.length || unfinished ? 'adm-editor-bar-text' : undefined"
-                @click="openPublish"
-              >
-                {{ busy === 'publish' ? 'Publishing…' : 'Publish…' }}
-              </button>
-            </div>
-          </div>
-
-          <section class="adm-editor-preview" aria-labelledby="adm-editor-preview">
-            <div class="adm-head">
-              <div class="adm-editor-preview-title">
-                <h2 id="adm-editor-preview" class="adm-h2">Preview</h2>
-                <p v-if="running" class="adm-muted">Updates when the agent finishes.</p>
-              </div>
-              <div class="adm-actions">
-                <div class="adm-actions adm-editor-widths" role="group" aria-label="Preview width">
-                  <button type="button" class="adm-btn adm-btn-small" :aria-pressed="!phone" @click="phone = false">
-                    Desktop (scaled)
-                  </button>
-                  <button type="button" class="adm-btn adm-btn-small" :aria-pressed="phone" @click="phone = true">
-                    Phone
-                  </button>
+                <div class="se-bar-text">
+                  <p id="adm-editor-bar-text">
+                    {{ plural(files.length, 'file changed', 'files changed') }}
+                    <template v-if="refused.length && publisher">
+                      ·
+                      <span class="se-err-inline"
+                        >undo {{ plural(refused.length, 'refused file', 'refused files') }} to publish</span
+                      >
+                    </template>
+                    <template v-if="unfinished"> · The last run didn’t finish.</template>
+                  </p>
+                  <p v-if="!publisher" class="se-bar-review">
+                    Ready for review: a publisher publishes this{{
+                      refused.length ? ' once the refused files are undone' : ''
+                    }}.
+                  </p>
                 </div>
-                <a :href="previewHref(previewPath)" target="_blank" rel="noopener">
-                  Open preview<span class="adm-visually-hidden"> in a new tab</span> <span aria-hidden="true">↗</span>
-                </a>
-              </div>
-            </div>
-            <div
-              ref="viewportEl"
-              class="adm-editor-viewport"
-              :class="{ 'is-phone': phone && !small }"
-              :style="{
-                '--adm-preview-scale': scale,
-                '--adm-preview-width': phone || small ? '' : `${DESKTOP_WIDTH}px`,
-              }"
-            >
-              <div class="adm-editor-frame">
-                <iframe
-                  :key="previewKey"
-                  :src="previewHref(previewPath)"
-                  title="Preview of the edited site"
-                  sandbox="allow-scripts allow-same-origin allow-forms"
+                <Button
+                  label="Discard…"
+                  :severity="outcome === 'stopped' ? undefined : 'secondary'"
+                  :outlined="outcome !== 'stopped'"
+                  :disabled="!!busy"
+                  @click="confirming = 'discard'"
+                />
+                <Button
+                  v-if="publisher"
+                  icon="pi pi-check"
+                  :label="busy === 'publish' ? 'Publishing…' : 'Publish…'"
+                  :severity="unfinished ? 'secondary' : undefined"
+                  :outlined="unfinished"
+                  :disabled="!!busy || refused.length > 0 || !!ready.blocked"
+                  :aria-describedby="refused.length || unfinished ? 'adm-editor-bar-text' : undefined"
+                  @click="openPublish"
                 />
               </div>
             </div>
-          </section>
 
-          <details
-            v-if="reviewing"
-            class="adm-editor-diffbox"
-            :open="diffOpen"
-            @toggle="diffOpen = ($event.target as HTMLDetailsElement).open"
-          >
-            <summary>
-              {{ lines.length <= SMALL_DIFF ? 'Diff' : `Show the full diff (${lines.length} lines)` }}
-            </summary>
-            <pre class="adm-pre adm-editor-diff" tabindex="0" aria-label="Diff"><span
+            <section class="card card-flush se-preview" aria-labelledby="adm-editor-preview">
+              <div class="card-head">
+                <div class="se-preview-title">
+                  <h2 id="adm-editor-preview" class="card-title">
+                    <i class="pi pi-desktop text-primary" aria-hidden="true" /> Preview
+                  </h2>
+                  <p v-if="running" class="card-subtitle">Updates when the agent finishes.</p>
+                </div>
+                <div class="se-row">
+                  <div class="se-widths" role="group" aria-label="Preview width">
+                    <button type="button" :aria-pressed="!phone" @click="phone = false">
+                      <i class="pi pi-desktop" aria-hidden="true" /> Desktop (scaled)
+                    </button>
+                    <button type="button" :aria-pressed="phone" @click="phone = true">
+                      <i class="pi pi-mobile" aria-hidden="true" /> Phone
+                    </button>
+                  </div>
+                  <a class="se-open" :href="previewHref(previewPath)" target="_blank" rel="noopener">
+                    Open preview<span class="adm-visually-hidden"> in a new tab</span> <span aria-hidden="true">↗</span>
+                  </a>
+                </div>
+              </div>
+              <div class="se-stage">
+                <div
+                  ref="viewportEl"
+                  class="se-viewport"
+                  :class="{ 'is-phone': phone && !small }"
+                  :style="{
+                    '--adm-preview-scale': scale,
+                    '--adm-preview-width': phone || small ? '' : `${DESKTOP_WIDTH}px`,
+                  }"
+                >
+                  <div class="se-frame">
+                    <iframe
+                      :key="previewKey"
+                      :src="previewHref(previewPath)"
+                      title="Preview of the edited site"
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <details
+              v-if="reviewing"
+              class="card se-diffbox"
+              :open="diffOpen"
+              @toggle="diffOpen = ($event.target as HTMLDetailsElement).open"
+            >
+              <summary>
+                <i class="pi pi-code text-primary" aria-hidden="true" />
+                {{ lines.length <= SMALL_DIFF ? 'Diff' : `Show the full diff (${lines.length} lines)` }}
+              </summary>
+              <pre class="se-pre se-diff" tabindex="0" aria-label="Diff"><span
               v-for="(l, i) in lines"
               :id="l.file && hunkIds.get(l.file)"
               :key="i"
               :class="`is-${l.kind}`"
               :tabindex="l.file ? -1 : undefined"
             >{{ l.text || ' ' }}</span></pre>
-            <p v-if="ready.diffTruncated" class="adm-muted">
-              The diff is over 200 KB, so only its start is shown. The file list above is complete.
-            </p>
-          </details>
+              <p v-if="ready.diffTruncated" class="se-muted">
+                The diff is over 200 KB, so only its start is shown. The file list above is complete.
+              </p>
+            </details>
+          </div>
         </div>
       </template>
     </div>
@@ -890,72 +955,830 @@ onBeforeUnmount(() => {
     <div
       v-if="confirming"
       v-dialog
-      class="adm-modal"
+      class="se-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="adm-editor-confirm"
       @keydown.esc="confirming = null"
     >
-      <div>
-        <form class="adm-editor-confirm" @submit.prevent="confirmed">
-          <h2 id="adm-editor-confirm" class="adm-h2">{{ CONFIRM[confirming].title }}</h2>
+      <div class="se-modal-box">
+        <form class="se-confirm" @submit.prevent="confirmed">
+          <h2 id="adm-editor-confirm" class="card-title">{{ CONFIRM[confirming].title }}</h2>
           <p>{{ CONFIRM[confirming].text }}</p>
           <template v-if="confirming === 'publish' && ready">
             <div v-if="ready.requests.length">
-              <h3 class="adm-editor-h3">{{ others ? 'Asked for' : 'You asked for' }}</h3>
-              <ol class="adm-editor-requests">
+              <h3 class="se-h3">{{ others ? 'Asked for' : 'You asked for' }}</h3>
+              <ol class="se-messages">
                 <li v-for="(r, i) in ready.requests" :key="i">
-                  <p>{{ r.prompt }}</p>
-                  <p v-if="r.by !== ctx.user?.login" class="adm-editor-by" dir="auto">
-                    Asked by {{ r.byName || r.by }}
-                  </p>
-                  <p v-if="r.summary" class="adm-editor-summary">
-                    <span class="adm-editor-summary-label">What changed:</span> {{ r.summary }}
+                  <p class="se-bubble is-mine">{{ r.prompt }}</p>
+                  <p v-if="r.by !== ctx.user?.login" class="se-by" dir="auto">Asked by {{ r.byName || r.by }}</p>
+                  <p v-if="r.summary" class="se-bubble is-agent">
+                    <span class="se-summary-label">What changed:</span> {{ r.summary }}
                   </p>
                 </li>
               </ol>
             </div>
             <div>
-              <h3 class="adm-editor-h3">{{ plural(allowed.length, 'file', 'files') }}</h3>
-              <ul class="adm-editor-confirm-files">
+              <h3 class="se-h3">{{ plural(allowed.length, 'file', 'files') }}</h3>
+              <ul class="se-confirm-files">
                 <li v-for="f in allowed" :key="f.path">
                   <code
                     ><template v-for="(s, i) in segments(f.path)" :key="i">{{ s }}<wbr /></template
                   ></code>
-                  <span class="adm-muted">{{ FILE_STATUS[f.status] }}</span>
+                  <span class="se-muted">{{ FILE_STATUS[f.status] }}</span>
                 </li>
               </ul>
             </div>
-            <p v-if="unfinished" class="adm-banner adm-editor-note">
+            <p v-if="unfinished" class="se-banner">
               <span>The last run didn’t finish, so these changes may be incomplete. Check the preview first.</span>
             </p>
-            <p v-if="serverCode" class="adm-banner adm-editor-note">
+            <p v-if="serverCode" class="se-banner">
               <span>{{ SERVER_NOTE }}</span>
             </p>
             <a :href="previewHref(previewPath)" target="_blank" rel="noopener">
               Open preview<span class="adm-visually-hidden"> in a new tab</span> <span aria-hidden="true">↗</span>
             </a>
-            <details class="adm-editor-details">
+            <details class="se-details">
               <summary>Details</summary>
-              <label class="adm-field">
+              <label class="se-field">
                 <span>Note for the change history</span>
-                <input v-model="message" type="text" />
+                <InputText v-model="message" type="text" fluid />
                 <small>Shown in your site’s history on GitHub.</small>
               </label>
             </details>
           </template>
-          <div class="adm-actions">
-            <button type="button" class="adm-btn" data-autofocus @click="confirming = null">Cancel</button>
-            <button
+          <div class="se-modal-actions">
+            <Button label="Cancel" severity="secondary" outlined data-autofocus @click="confirming = null" />
+            <Button
               type="submit"
-              class="adm-btn"
-              :class="confirming === 'publish' || confirming === 'undo' ? 'adm-btn-primary' : 'adm-btn-danger'"
-            >
-              {{ CONFIRM[confirming].action }}
-            </button>
+              :label="CONFIRM[confirming].action"
+              :severity="confirming === 'publish' || confirming === 'undo' ? undefined : 'danger'"
+            />
           </div>
         </form>
       </div>
     </div>
   </AdminShell>
 </template>
+
+<style scoped>
+.se {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+.se p {
+  margin: 0;
+}
+.se-muted {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.se-err,
+.se-err-inline {
+  color: var(--c-danger);
+}
+.se-err {
+  margin: 0.375rem 0 0;
+  font-size: 0.8125rem;
+}
+.se-icon,
+.se-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  font-size: 1.125rem;
+}
+.se-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.se-h2 {
+  margin: 0;
+  color: var(--app-heading);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.se-h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.se-h3.is-refused {
+  color: var(--c-danger);
+}
+/* Headings script focuses (after a run, after Publish) are landmarks for screen readers, not targets: no box. */
+.se h2[tabindex='-1']:focus,
+.se-run:focus {
+  outline: none;
+}
+.se-pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}
+details > summary {
+  cursor: pointer;
+}
+
+/* Session menu (a details popover). */
+.se-session {
+  position: relative;
+}
+.se-session > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.625rem;
+  padding: 0 1rem;
+  border: 1px solid var(--p-button-outlined-secondary-border-color, var(--app-border));
+  border-radius: var(--p-button-border-radius, 0.5rem);
+  color: var(--app-heading);
+  font-weight: 500;
+  list-style: none;
+  user-select: none;
+}
+.se-session > summary::-webkit-details-marker {
+  display: none;
+}
+.se-session > summary::after {
+  content: '\e902';
+  font-family: primeicons;
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+}
+.se-session[open] > summary::after {
+  transform: rotate(180deg);
+}
+.se-session > summary:hover {
+  background: var(--app-menu-hover);
+}
+.se-session-menu {
+  position: absolute;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + 0.375rem);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 13rem;
+  padding: 0.375rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-float);
+}
+.se-session-menu :deep(.p-button) {
+  justify-content: flex-start;
+}
+.se-session-menu p {
+  margin: 0;
+  padding: 0.375rem 0.75rem;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+
+/* Introduction ("How this works" once there is something to show). */
+.se-how {
+  padding-block: 1.25rem;
+}
+.se-how > summary {
+  color: var(--app-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+details.se-how[open] > summary {
+  margin-block-end: 1rem;
+}
+.se-how-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.se-how-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-inline-size: 46rem;
+}
+.se-intro {
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+}
+
+.se-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--c-warning) 12%, var(--app-card));
+  box-shadow: inset 4px 0 0 var(--c-warning);
+  color: var(--app-heading);
+  font-size: 0.875rem;
+}
+.se-banner.is-danger {
+  background: color-mix(in srgb, var(--c-danger) 8%, var(--app-card));
+  box-shadow: inset 4px 0 0 var(--c-danger);
+}
+
+/* Setup notice. */
+.se-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 1rem 1.25rem;
+  box-shadow:
+    inset 4px 0 0 var(--c-warning),
+    var(--app-shadow-card);
+}
+.se-notice-text {
+  display: flex;
+  flex: 1 1 26rem;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+.se-notice-text > p {
+  max-inline-size: 65ch;
+  font-size: 0.9375rem;
+}
+.se-steps {
+  margin: 0.25rem 0;
+  padding-inline-start: 1.25rem;
+  max-inline-size: 65ch;
+  list-style: decimal;
+  font-size: 0.875rem;
+}
+.se-steps > li + li {
+  margin-block-start: 0.375rem;
+}
+.se-steps > li::marker {
+  color: var(--p-primary-color);
+  font-weight: 600;
+}
+.se-tech > summary {
+  inline-size: fit-content;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.se-tech pre {
+  margin-block-start: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+  overflow-wrap: anywhere;
+}
+
+/* Status line: a drawn marker per state (working, done, failed, ready), so the state never rests on colour alone. */
+.se-status {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding-block: 1rem;
+}
+.se-line {
+  display: flex;
+  gap: 0.625rem;
+  color: var(--app-heading);
+  font-weight: 500;
+}
+.se-line::before {
+  content: '';
+  flex: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+  margin-block-start: 0.2em;
+  background: currentColor;
+  mask: var(--se-mark) center / contain no-repeat;
+}
+.se-line.is-working::before {
+  --se-mark: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M8 2a6 6 0 1 1-6 6'/></svg>");
+  color: var(--p-primary-color);
+  animation: se-spin 0.9s linear infinite;
+}
+.se-line.is-done::before {
+  --se-mark: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M3 8.5l3.2 3.2L13 4.5'/></svg>");
+  color: var(--c-success);
+}
+.se-line.is-failed {
+  color: var(--c-danger);
+}
+.se-line.is-failed::before {
+  --se-mark: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='8' cy='8' r='6.5'/><path d='M8 4.5v4.2M8 11.4v.1'/></svg>");
+}
+.se-line.is-ready::before {
+  --se-mark: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='8' cy='8' r='5'/></svg>");
+  color: var(--app-muted);
+}
+@keyframes se-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .se-line.is-working::before {
+    animation: none;
+  }
+}
+.se-last {
+  padding-block-start: 0.75rem;
+  border-top: 1px dashed var(--app-border);
+}
+
+.se-done {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  box-shadow:
+    inset 4px 0 0 var(--c-success),
+    var(--app-shadow-card);
+}
+.se-done-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* Work area: the agent conversation beside the preview (Conca's chat app); stacked while the preview wouldn't fit. */
+.se-work {
+  container-type: inline-size;
+  min-width: 0;
+}
+.se-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+/* Stacked: the bar's sticky range is the whole work area, so it stays in reach over the preview and diff. */
+.se-rail {
+  display: contents;
+}
+.se-chat {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+}
+.se-chat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-canvas) 60%, var(--app-card));
+}
+.se-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  font-size: 1rem;
+}
+.se-chat-who {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.3;
+}
+.se-chat-who strong {
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.se-chat-who span {
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.se-chat-dot {
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 50%;
+  background: var(--c-success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-success) 25%, transparent);
+}
+.se-chat-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 0;
+  padding: 1.25rem;
+}
+.se-chat-body:has(.se-chat-empty) {
+  justify-content: center;
+}
+.se-chat-empty {
+  display: grid;
+  place-items: center;
+  min-height: 8rem;
+}
+.se-chat-empty .pi {
+  display: grid;
+  place-items: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--p-primary-color) 8%, transparent);
+  color: color-mix(in srgb, var(--p-primary-color) 55%, var(--app-card));
+  font-size: 1.75rem;
+}
+.se-review,
+.se-run {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.se-pages {
+  font-size: 0.875rem;
+}
+.se-pages a[aria-current] {
+  color: var(--app-heading);
+  font-weight: 600;
+}
+.se-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Chat bubbles: the request on the right, the agent's account on the left. */
+.se-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.se-messages > li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.se-bubble {
+  max-inline-size: 90%;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.875rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.se-bubble.is-mine {
+  align-self: flex-end;
+  border-end-end-radius: 0.25rem;
+  background: var(--p-primary-color);
+  color: #fff;
+}
+.se-bubble.is-agent {
+  align-self: flex-start;
+  border-end-start-radius: 0.25rem;
+  background: var(--app-canvas);
+  color: var(--app-heading);
+}
+.se-summary-label {
+  font-weight: 600;
+}
+.se-by {
+  align-self: flex-end;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+}
+.se-elapsed {
+  color: var(--app-muted);
+  font-size: 0.875rem;
+}
+.se-time {
+  color: var(--app-heading);
+  font-variant-numeric: tabular-nums;
+}
+.se-logbox > summary {
+  inline-size: fit-content;
+  color: var(--app-heading);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.se-log,
+.se-diff {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+}
+.se-log {
+  margin-block-start: 0.5rem;
+  background: #1b1a24;
+  color: #d9d8e3;
+}
+
+/* Changed files. */
+.se-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.se-files > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  padding-block: 0.5rem;
+}
+.se-files > li + li {
+  border-top: 1px dashed var(--app-border);
+}
+/* Paths break after a slash (the <wbr>); mid-segment only when one segment can't fit. */
+.se-file {
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: break-word;
+  font-size: 0.8125rem;
+}
+.se-file code,
+code.se-file {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  overflow-wrap: break-word;
+}
+.se-file-status {
+  color: var(--app-muted);
+  font-size: 0.75rem;
+}
+
+/* Composer: the request box at the foot of the conversation. */
+.se-ask {
+  padding: 1rem 1.25rem 1.25rem;
+  border-top: 1px solid var(--app-border);
+}
+.se-ask > summary {
+  inline-size: fit-content;
+  color: var(--p-primary-color);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+details.se-ask[open] > summary {
+  margin-block-end: 0.75rem;
+}
+.se-ask-label {
+  display: block;
+  margin-block-end: 0.5rem;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.se-composer {
+  border: 1px solid var(--app-border);
+  border-radius: 0.75rem;
+  background: var(--app-canvas);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.se-composer:focus-within {
+  border-color: var(--p-primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-primary-color) 18%, transparent);
+}
+.se-composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.75rem 0.875rem 0.25rem;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--app-heading);
+  font: inherit;
+  font-size: 0.9375rem;
+  resize: vertical;
+}
+.se-composer textarea::placeholder {
+  color: var(--app-muted);
+}
+.se-composer textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.se-composer textarea[aria-invalid='true'] {
+  box-shadow: inset 0 -2px 0 var(--c-danger);
+}
+.se-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 0.375rem 0.5rem 0.5rem;
+}
+.se-kbd kbd {
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.25rem;
+  background: var(--app-card);
+  color: var(--app-muted);
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+}
+@media (pointer: coarse), (max-width: 640px) {
+  .se-kbd {
+    display: none;
+  }
+}
+
+/* Discard and Publish stay in reach while the preview and diff scroll past. */
+.se-bar {
+  position: sticky;
+  inset-block: calc(var(--app-header-height) + 0.75rem) 0.75rem;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 0.75rem 0.75rem 1.25rem;
+  border-radius: var(--app-radius-card);
+  background: var(--app-card);
+  box-shadow:
+    0 0 0 1px var(--app-border),
+    var(--app-shadow-float);
+}
+.se-bar-text {
+  flex: 1 1 14rem;
+  font-size: 0.875rem;
+}
+.se-bar-text p {
+  color: var(--app-heading);
+}
+.se-bar-review {
+  font-weight: 500;
+}
+
+/* Preview. */
+.se-preview > .card-head {
+  padding-block: 0.875rem;
+}
+.se-preview-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.75rem;
+}
+.se-widths {
+  display: inline-flex;
+  padding: 0.1875rem;
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+}
+.se-widths button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.3125rem 0.625rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--app-body);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.se-widths button[aria-pressed='true'] {
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-card);
+  color: var(--p-primary-color);
+}
+/* The width presets are hidden on phones, where the preview is the phone's own width. */
+@media (max-width: 640px) {
+  .se-widths {
+    display: none;
+  }
+}
+.se-open {
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.se-stage {
+  padding: 1rem;
+  background: var(--app-canvas);
+}
+@media (max-width: 640px) {
+  .se-stage {
+    padding: 0.5rem;
+  }
+}
+/*
+ * Desktop lays the site out 1280px wide (--adm-preview-width) and scales it to the column (--adm-preview-scale, set
+ * from its width, never below 0.6); a column narrower than that scrolls sideways.
+ */
+.se-viewport {
+  block-size: 70vh;
+  overflow: auto hidden;
+  border: 1px solid var(--app-border);
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: var(--app-shadow-card);
+}
+.se-viewport.is-phone {
+  inline-size: min(390px, 100%);
+  margin-inline: auto;
+  border-radius: 1.25rem;
+}
+/* The page's scaled size: it clips the iframe's unscaled box, which would otherwise widen the scroll range. */
+.se-frame {
+  inline-size: calc(var(--adm-preview-width, 100%) * var(--adm-preview-scale, 1));
+  block-size: 100%;
+  overflow: hidden;
+}
+.se-frame > iframe {
+  display: block;
+  inline-size: var(--adm-preview-width, 100%);
+  block-size: calc(100% / var(--adm-preview-scale, 1));
+  border: 0;
+  transform: scale(var(--adm-preview-scale, 1));
+  transform-origin: 0 0;
+}
+.se-frame > iframe:dir(rtl) {
+  transform-origin: 100% 0;
+}
+
+/* Diff. */
+.se-diffbox > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  inline-size: fit-content;
+  color: var(--app-heading);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.se-diffbox > pre {
+  max-height: 60vh;
+  margin-block: 1rem 0;
+  background: var(--app-canvas);
+}
+.se-diffbox > p {
+  margin-block-start: 0.5rem;
+}
+.se-diff > span {
+  display: block;
+}
+.se-diff .is-add {
+  background: color-mix(in srgb, var(--c-success) 12%, transparent);
+  color: var(--c-success);
+}
+.se-diff .is-del {
+  background: color-mix(in srgb, var(--c-danger) 8%, transparent);
+  color: var(--c-danger);
+}
+.se-diff .is-hunk {
+  color: var(--p-primary-color);
+}
+.se-diff .is-meta {
+  color: var(--app-muted);
+  font-weight: 500;
+}
+
+/*
+ * Side by side once 19rem of conversation, the gap and the preview at its 0.6 floor (768px) fit; the conversation
+ * grows toward 26rem only from what the preview doesn't need.
+ */
+@container (min-width: 69rem) {
+  .se-grid {
+    display: grid;
+    grid-template-columns: clamp(19rem, 100% - 800px, 26rem) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .se-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    min-width: 0;
+  }
+  .se-rail > .se-chat {
+    flex: 1;
+  }
+  .se-preview {
+    position: sticky;
+    inset-block-start: calc(var(--app-header-height) + 1rem);
+    align-self: start;
+  }
+  .se-diffbox {
+    grid-column: 1 / -1;
+  }
+}
+</style>
