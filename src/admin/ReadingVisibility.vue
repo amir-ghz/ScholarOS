@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import Button from 'primevue/button';
 import { api, report } from './api';
 import { visibilityText } from './vault';
 import type { AdminCtx } from './types';
@@ -57,21 +58,62 @@ async function publishAgain() {
 </script>
 
 <template>
-  <p v-if="line" class="adm-muted adm-vault-act">
-    {{ line.head }}<a v-if="line.url" :href="line.url" target="_blank" rel="noopener">{{ line.url }}</a
-    >{{ line.mid }}<template v-if="line.pages"><a :href="`/${ctx.adminPath}/pages`">Pages</a>.</template>
-    <button
+  <div v-if="line" class="rd-vis">
+    <span :class="['rd-vis-icon', visibility!.public ? 'tint-success' : 'tint-secondary']" aria-hidden="true"
+      ><i :class="['pi', visibility!.public ? 'pi-globe' : 'pi-lock']"
+    /></span>
+    <p class="rd-vis-text">
+      {{ line.head }}<a v-if="line.url" :href="line.url" target="_blank" rel="noopener">{{ line.url }}</a
+      >{{ line.mid }}<template v-if="line.pages"><a :href="`/${ctx.adminPath}/pages`">Pages</a>.</template>
+    </p>
+    <Button
       v-if="!visibility!.chat && (kind === 'paper' || visibility!.noteId)"
-      type="button"
-      class="adm-btn"
+      size="small"
+      severity="secondary"
+      outlined
+      :icon="visibility!.public ? 'pi pi-lock' : 'pi pi-globe'"
+      :label="visibility!.public ? 'Make private' : 'Make public'"
       :disabled="busy"
       @click="toggle"
-    >
-      {{ visibility!.public ? 'Make private' : 'Make public' }}
-    </button>
-  </p>
-  <p v-if="warning" class="adm-err adm-vault-act" role="alert">
-    {{ warning }}
-    <button type="button" class="adm-btn" :disabled="publishing" @click="publishAgain">Publish again</button>
-  </p>
+    />
+  </div>
+  <div v-if="warning" class="rd-vis rd-vis-warn" role="alert">
+    <span class="rd-vis-icon tint-warning" aria-hidden="true"><i class="pi pi-exclamation-triangle" /></span>
+    <p class="rd-vis-text">{{ warning }}</p>
+    <Button size="small" label="Publish again" icon="pi pi-refresh" :disabled="publishing" @click="publishAgain" />
+  </div>
 </template>
+
+<style scoped>
+.rd-vis {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+.rd-vis-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  font-size: 0.875rem;
+}
+.rd-vis-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+  margin: 0;
+  color: var(--app-body);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+.rd-vis-warn {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--c-warning) 10%, transparent);
+}
+.rd-vis-warn .rd-vis-text {
+  color: var(--app-heading);
+}
+</style>

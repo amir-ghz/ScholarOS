@@ -1,0 +1,35 @@
+---
+/**
+ * First-party, cookieless page-view beacon (Postgres mode; src/lib/analytics). It sends the path, the referrer, the
+ * screen width, the language and any utm_* tags, once per page, including pages reached by the client router. Nothing
+ * is sent when the browser asks not to be tracked (DNT or GPC).
+ */
+import { getMode } from '../../lib/mode';
+const on = getMode() === 'postgres';
+---
+
+{on && <script is:inline>
+  (function () {
+    if (window.__scholarosCollect) return;
+    window.__scholarosCollect = true;
+    if (navigator.doNotTrack === '1' || navigator.globalPrivacyControl) return;
+    let last = '';
+    function send() {
+      if (location.pathname === last) return;
+      const ref = last ? location.origin + last : document.referrer;
+      last = location.pathname;
+      const q = new URLSearchParams(location.search);
+      const u = {};
+      ['source', 'medium', 'campaign'].forEach(function (k) {
+        const v = q.get('utm_' + k);
+        if (v) u[k] = v;
+      });
+      const body = JSON.stringify({ p: location.pathname, r: ref, w: screen.width, l: navigator.language, u: u });
+      try {
+        if (!(navigator.sendBeacon && navigator.sendBeacon('/api/collect', body)))
+          fetch('/api/collect', { method: 'POST', body: body, keepalive: true });
+      } catch (e) {}
+    }
+    document.addEventListener('astro:page-load', send);
+  })();
+</script>}

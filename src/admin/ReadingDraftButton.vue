@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { nextTick, ref, useId, watch } from 'vue';
+import Button from 'primevue/button';
 import { api } from './api';
 import type { AdminCtx } from './types';
 import type { DraftFrom } from '../lib/reading/types';
@@ -14,7 +15,7 @@ const props = defineProps<{
 }>();
 const busy = ref(false);
 const error = ref('');
-const button = ref<HTMLButtonElement | null>(null);
+const button = ref<InstanceType<typeof Button> | null>(null);
 const hintId = useId();
 // By value: the room and the vault pass a new object literal on every render.
 watch(
@@ -35,31 +36,56 @@ async function draft() {
     error.value = (e as Error).message;
     busy.value = false;
     await nextTick();
-    button.value?.focus(); // disabling it while busy dropped focus to the page
+    (button.value?.$el as HTMLElement | undefined)?.focus(); // disabling it while busy dropped focus to the page
   }
 }
 </script>
 
 <template>
-  <div class="adm-draft">
-    <button
+  <div class="rd-draft">
+    <Button
       ref="button"
-      type="button"
-      class="adm-btn"
-      :disabled="!from || busy"
-      :aria-busy="busy || undefined"
-      :aria-describedby="hintId"
-      @click="draft"
-    >
-      {{
+      icon="pi pi-pen-to-square"
+      severity="secondary"
+      outlined
+      :label="
         busy
           ? 'Drafting… (about a minute)'
           : from && 'papers' in from && from.papers.length > 1
             ? 'Draft a roundup'
             : 'Draft a blog post'
-      }}
-    </button>
-    <p :id="hintId" class="adm-hint">{{ hint }}</p>
-    <p v-if="error" class="adm-err" role="alert">{{ error }}</p>
+      "
+      :loading="busy"
+      :disabled="!from || busy"
+      :aria-busy="busy || undefined"
+      :aria-describedby="hintId"
+      @click="draft"
+    />
+    <p :id="hintId" class="rd-draft-hint">{{ hint }}</p>
+    <p v-if="error" class="rd-draft-error" role="alert">
+      <i class="pi pi-exclamation-circle" aria-hidden="true" /> {{ error }}
+    </p>
   </div>
 </template>
+
+<style scoped>
+.rd-draft {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.375rem;
+  min-width: 0;
+}
+.rd-draft-hint {
+  max-width: 65ch;
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.rd-draft-error {
+  margin: 0;
+  color: var(--c-danger);
+  font-size: 0.8125rem;
+}
+</style>

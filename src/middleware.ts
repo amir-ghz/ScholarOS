@@ -90,6 +90,8 @@ export const onRequest: MiddlewareHandler = async (ctx, next) => {
         headers: { 'Content-Type': CONTENT_TYPES[pathname.split('.').pop()!] ?? '' },
       });
   }
+  // The analytics beacon reads no content: skip the request context (a database read) and caching.
+  if (pathname === '/api/collect') return next();
   const { adminPath, adminUsers } = adminSettings();
   const api = pathname === '/api/admin' || pathname.startsWith('/api/admin/');
   const page = pathname === `/${adminPath}` || pathname.startsWith(`/${adminPath}/`);

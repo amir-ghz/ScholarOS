@@ -1,12 +1,19 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any -- config files are user data */
 import { computed, onMounted, ref } from 'vue';
+import Button from 'primevue/button';
+import Tab from 'primevue/tab';
+import TabList from 'primevue/tablist';
+import TabPanel from 'primevue/tabpanel';
+import TabPanels from 'primevue/tabpanels';
+import Tabs from 'primevue/tabs';
 import AdminShell from './AdminShell.vue';
 import DocBanners from './DocBanners.vue';
 import FormFields from './FormFields.vue';
 import { api, report } from './api';
 import { resolveOptions, text, type FieldDef, type Option } from './fields';
 import { useDocument } from './useDocument';
+import { HIDE_ICON } from './ui/content/pt';
 import { DEFAULT_OFF, SITE_PAGES, type SitePageId } from '../lib/types';
 import type { AdminCtx, CommitResult, Entry } from './types';
 
@@ -104,110 +111,206 @@ onMounted(() => {
 
 <template>
   <AdminShell :ctx="ctx" active="pages" title="Pages" :dirty="home.dirty || research.dirty">
-    <div role="tablist" aria-label="Pages" class="adm-actions">
-      <button
-        type="button"
-        role="tab"
-        class="adm-btn"
-        :class="{ 'adm-btn-primary': tab === 'pages' }"
-        :aria-selected="tab === 'pages'"
-        @click="tab = 'pages'"
-      >
-        On/off
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="adm-btn"
-        :class="{ 'adm-btn-primary': tab === 'home' }"
-        :aria-selected="tab === 'home'"
-        @click="tab = 'home'"
-      >
-        Home
-      </button>
-      <button
-        type="button"
-        role="tab"
-        class="adm-btn"
-        :class="{ 'adm-btn-primary': tab === 'research' }"
-        :aria-selected="tab === 'research'"
-        @click="tab = 'research'"
-      >
-        Research
-      </button>
-    </div>
-
-    <section v-show="tab === 'pages'" class="adm-form" aria-label="Pages on the site">
-      <DocBanners
-        :draft="!!home.draft"
-        :path="'config/site.yml'"
-        :version="home.version"
-        :conflict="home.conflict"
-        :stale="home.draftStale ? home.draftChanges : null"
-        @restore="home.restore()"
-        @discard="home.discard()"
-        @reload="home.reload()"
-      />
-      <p class="adm-muted">
-        A page that is off leaves the menu, the footer and the sitemap, and its address shows Not found. Its content
-        stays, ready for when you turn it back on. Saved to config/site.yml.
-      </p>
-      <FormFields v-if="home.current" :fields="SWITCHES" :model="home.current" :errors="home.errors" />
-      <div class="adm-actions">
-        <button type="button" class="adm-btn adm-btn-primary" :disabled="home.saving" @click="publish(home, 'site')">
-          Publish pages
-        </button>
+    <Tabs v-model:value="tab" class="pg">
+      <div class="card card-flush pg-tabs">
+        <TabList :pt="{ tabList: { 'aria-label': 'Pages' } }">
+          <Tab value="pages"><i class="pi pi-sliders-h" aria-hidden="true" /> On/off</Tab>
+          <Tab value="home"><i class="pi pi-home" aria-hidden="true" /> Home</Tab>
+          <Tab value="research"><i class="pi pi-book" aria-hidden="true" /> Research</Tab>
+        </TabList>
       </div>
-    </section>
+      <TabPanels class="pg-panels">
+        <TabPanel value="pages">
+          <section class="card card-flush" aria-label="Pages on the site">
+            <div class="card-head">
+              <div>
+                <h2 class="card-title">Pages on the site</h2>
+                <p class="card-subtitle pg-note">
+                  A page that is off leaves the menu, the footer and the sitemap, and its address shows Not found. Its
+                  content stays, ready for when you turn it back on. Saved to config/site.yml.
+                </p>
+              </div>
+            </div>
+            <div class="pg-body">
+              <DocBanners
+                :draft="!!home.draft"
+                :path="'config/site.yml'"
+                :version="home.version"
+                :conflict="home.conflict"
+                :stale="home.draftStale ? home.draftChanges : null"
+                @restore="home.restore()"
+                @discard="home.discard()"
+                @reload="home.reload()"
+              />
+              <div class="pg-switches">
+                <FormFields v-if="home.current" :fields="SWITCHES" :model="home.current" :errors="home.errors" />
+              </div>
+            </div>
+            <div class="pg-footer">
+              <Button
+                icon="pi pi-send"
+                label="Publish pages"
+                :disabled="home.saving"
+                :pt="HIDE_ICON"
+                @click="publish(home, 'site')"
+              />
+            </div>
+          </section>
+        </TabPanel>
 
-    <section v-show="tab === 'home'" class="adm-form" aria-label="Home page">
-      <DocBanners
-        :draft="!!home.draft"
-        :path="'config/site.yml'"
-        :version="home.version"
-        :conflict="home.conflict"
-        :stale="home.draftStale ? home.draftChanges : null"
-        @restore="home.restore()"
-        @discard="home.discard()"
-        @reload="home.reload()"
-      />
-      <p class="adm-muted">Saved to config/site.yml.</p>
-      <FormFields v-if="home.current" :fields="HOME" :model="home.current" :errors="home.errors" />
-      <div class="adm-actions">
-        <button type="button" class="adm-btn adm-btn-primary" :disabled="home.saving" @click="publish(home, 'site')">
-          Publish home page
-        </button>
-      </div>
-    </section>
+        <TabPanel value="home">
+          <section class="card card-flush" aria-label="Home page">
+            <div class="card-head">
+              <div>
+                <h2 class="card-title">Home page</h2>
+                <p class="card-subtitle pg-note">Saved to config/site.yml.</p>
+              </div>
+            </div>
+            <div class="pg-body">
+              <DocBanners
+                :draft="!!home.draft"
+                :path="'config/site.yml'"
+                :version="home.version"
+                :conflict="home.conflict"
+                :stale="home.draftStale ? home.draftChanges : null"
+                @restore="home.restore()"
+                @discard="home.discard()"
+                @reload="home.reload()"
+              />
+              <FormFields v-if="home.current" :fields="HOME" :model="home.current" :errors="home.errors" />
+            </div>
+            <div class="pg-footer">
+              <Button
+                icon="pi pi-send"
+                label="Publish home page"
+                :disabled="home.saving"
+                :pt="HIDE_ICON"
+                @click="publish(home, 'site')"
+              />
+            </div>
+          </section>
+        </TabPanel>
 
-    <section v-show="tab === 'research'" class="adm-form" aria-label="Research page">
-      <DocBanners
-        :draft="!!research.draft"
-        :path="'config/research.yml'"
-        :version="research.version"
-        :conflict="research.conflict"
-        :stale="research.draftStale ? research.draftChanges : null"
-        @restore="research.restore()"
-        @discard="research.discard()"
-        @reload="research.reload()"
-      />
-      <p class="adm-muted">Saved to config/research.yml.</p>
-      <FormFields
-        v-if="research.current"
-        :fields="researchFields"
-        :model="research.current"
-        :errors="research.errors"
-      />
-      <div class="adm-actions">
-        <button
-          type="button"
-          class="adm-btn adm-btn-primary"
-          :disabled="research.saving"
-          @click="publish(research, 'research')"
-        >
-          Publish research page
-        </button>
-      </div>
-    </section>
+        <TabPanel value="research">
+          <section class="card card-flush" aria-label="Research page">
+            <div class="card-head">
+              <div>
+                <h2 class="card-title">Research page</h2>
+                <p class="card-subtitle pg-note">Saved to config/research.yml.</p>
+              </div>
+            </div>
+            <div class="pg-body">
+              <DocBanners
+                :draft="!!research.draft"
+                :path="'config/research.yml'"
+                :version="research.version"
+                :conflict="research.conflict"
+                :stale="research.draftStale ? research.draftChanges : null"
+                @restore="research.restore()"
+                @discard="research.discard()"
+                @reload="research.reload()"
+              />
+              <FormFields
+                v-if="research.current"
+                :fields="researchFields"
+                :model="research.current"
+                :errors="research.errors"
+              />
+            </div>
+            <div class="pg-footer">
+              <Button
+                icon="pi pi-send"
+                label="Publish research page"
+                :disabled="research.saving"
+                :pt="HIDE_ICON"
+                @click="publish(research, 'research')"
+              />
+            </div>
+          </section>
+        </TabPanel>
+      </TabPanels>
+    </Tabs>
   </AdminShell>
 </template>
+
+<style scoped>
+.pg-tabs {
+  margin-block-end: 1.5rem;
+}
+.pg-tabs :deep(.p-tablist) {
+  padding-inline: 0.75rem;
+}
+.pg-tabs :deep(.p-tablist-tab-list) {
+  background: transparent;
+}
+.pg-tabs :deep(.p-tab) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.125rem 0.875rem;
+  font-size: 0.9375rem;
+}
+.pg-panels {
+  padding: 0;
+  background: transparent;
+}
+.pg .card-flush {
+  overflow: visible;
+}
+.pg-note {
+  max-width: 48rem;
+  line-height: 1.5;
+}
+.pg-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.5rem;
+}
+.pg-switches :deep(.ff) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+.pg-switches :deep(.ff-check) {
+  width: auto;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+  font-weight: 500;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.pg-switches :deep(.ff-check:hover) {
+  border-color: color-mix(in srgb, var(--p-primary-color) 40%, var(--app-border));
+}
+.pg-switches :deep(.ff-check:has(input:checked)) {
+  border-color: color-mix(in srgb, var(--p-primary-color) 35%, var(--app-border));
+  background: color-mix(in srgb, var(--p-primary-color) 5%, var(--app-card));
+}
+.pg-footer {
+  position: sticky;
+  inset-block-end: 0;
+  z-index: 3;
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--app-border);
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
+  background: color-mix(in srgb, var(--app-card) 94%, transparent);
+  backdrop-filter: blur(6px);
+}
+@media (max-width: 575.98px) {
+  .pg-body {
+    padding: 1.25rem 1rem;
+  }
+  .pg-footer {
+    padding-inline: 1rem;
+  }
+  .pg-tabs :deep(.p-tab) {
+    padding-inline: 0.625rem;
+  }
+}
+</style>

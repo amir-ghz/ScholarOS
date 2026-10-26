@@ -1,6 +1,8 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any -- config files are user data */
 import { computed, onMounted, ref } from 'vue';
+import Button from 'primevue/button';
+import Skeleton from 'primevue/skeleton';
 import AdminSections from './AdminSections.vue';
 import AdminShell from './AdminShell.vue';
 import DocBanners from './DocBanners.vue';
@@ -165,10 +167,11 @@ const FEEDS: FieldDef[] = [
 
 /** Each section is one or more groups of config/site.yml fields, except Feeds, which is config/feeds.yml. */
 const SECTIONS = [
-  { id: 'identity', label: 'Identity', groups: [{ label: '', fields: IDENTITY }] },
+  { id: 'identity', label: 'Identity', icon: 'pi-id-card', groups: [{ label: '', fields: IDENTITY }] },
   {
     id: 'appearance',
     label: 'Appearance',
+    icon: 'pi-palette',
     groups: [
       { label: 'Theme and colors', fields: THEME },
       { label: 'Fonts', fields: FONTS },
@@ -177,15 +180,16 @@ const SECTIONS = [
   {
     id: 'header',
     label: 'Header & hero',
+    icon: 'pi-image',
     groups: [
       { label: 'Top bar', fields: TOP_BAR },
       { label: 'Hero', fields: HERO },
     ],
   },
-  { id: 'navigation', label: 'Navigation', groups: [{ label: '', fields: NAV }] },
-  { id: 'social', label: 'Social links', groups: [{ label: '', fields: SOCIAL }] },
-  { id: 'feeds', label: 'Feeds', groups: [{ label: '', fields: FEEDS }] },
-  { id: 'access', label: 'Access', groups: [{ label: '', fields: ACCESS }] },
+  { id: 'navigation', label: 'Navigation', icon: 'pi-sitemap', groups: [{ label: '', fields: NAV }] },
+  { id: 'social', label: 'Social links', icon: 'pi-share-alt', groups: [{ label: '', fields: SOCIAL }] },
+  { id: 'feeds', label: 'Feeds', icon: 'pi-list', groups: [{ label: '', fields: FEEDS }] },
+  { id: 'access', label: 'Access', icon: 'pi-shield', groups: [{ label: '', fields: ACCESS }] },
 ];
 const TABS = SECTIONS.map((s) => ({ ...s, fields: s.groups.flatMap((g) => g.fields.map((f) => f.key)) }));
 
@@ -212,24 +216,20 @@ onMounted(() => {
 <template>
   <AdminShell :ctx="ctx" active="settings" title="Settings" :dirty="site.dirty || feeds.dirty">
     <template #actions>
-      <button
+      <Button
         v-if="section === 'feeds'"
-        type="button"
-        class="adm-btn adm-btn-primary"
+        icon="pi pi-check"
+        label="Publish feeds"
         :disabled="feeds.saving || !feeds.current"
         @click="publish(feeds, 'feeds')"
-      >
-        Publish feeds
-      </button>
-      <button
+      />
+      <Button
         v-else
-        type="button"
-        class="adm-btn adm-btn-primary"
+        icon="pi pi-check"
+        label="Publish settings"
         :disabled="site.saving || !site.current"
         @click="publish(site, 'site')"
-      >
-        Publish settings
-      </button>
+      />
     </template>
     <AdminSections v-model="section" :sections="TABS" :errors="errors">
       <template v-for="sec in SECTIONS" :key="sec.id" #[sec.id]>
@@ -244,10 +244,20 @@ onMounted(() => {
             @discard="feeds.discard()"
             @reload="feeds.reload()"
           />
-          <p class="adm-muted">
-            Saved to config/feeds.yml. Sync them from Site status on the <a :href="`/${ctx.adminPath}`">Dashboard</a>.
-          </p>
-          <FormFields v-if="feeds.current" :fields="FEEDS" :model="feeds.current" :errors="feeds.errors" />
+          <section class="card" aria-labelledby="set-feeds">
+            <div class="card-head set-head">
+              <span class="set-icon tint-primary" aria-hidden="true"><i :class="['pi', sec.icon]" /></span>
+              <div>
+                <h2 id="set-feeds" class="card-title">{{ sec.label }}</h2>
+                <p class="card-subtitle">
+                  Saved to config/feeds.yml. Sync them from Site status on the
+                  <a :href="`/${ctx.adminPath}`">Dashboard</a>.
+                </p>
+              </div>
+            </div>
+            <FormFields v-if="feeds.current" :fields="FEEDS" :model="feeds.current" :errors="feeds.errors" />
+            <Skeleton v-else height="10rem" />
+          </section>
         </template>
         <template v-else-if="site.current">
           <DocBanners
@@ -260,12 +270,39 @@ onMounted(() => {
             @discard="site.discard()"
             @reload="site.reload()"
           />
-          <template v-for="g in sec.groups" :key="g.label">
-            <h2 v-if="g.label" class="adm-subhead">{{ g.label }}</h2>
+          <section v-for="(g, i) in sec.groups" :key="g.label" class="card" :aria-labelledby="`set-${sec.id}-${i}`">
+            <div class="card-head set-head">
+              <span class="set-icon tint-primary" aria-hidden="true"><i :class="['pi', sec.icon]" /></span>
+              <h2 :id="`set-${sec.id}-${i}`" class="card-title">{{ g.label || sec.label }}</h2>
+            </div>
             <FormFields :fields="g.fields" :model="site.current" :errors="site.errors" />
-          </template>
+          </section>
         </template>
+        <div v-else class="card" aria-hidden="true">
+          <Skeleton v-for="n in 5" :key="n" height="2.5rem" class="mb-3" />
+        </div>
       </template>
     </AdminSections>
   </AdminShell>
 </template>
+
+<style scoped>
+.set-head {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  align-items: center;
+  margin-block-end: 1.5rem;
+}
+.set-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  font-size: 1.05rem;
+}
+.card-subtitle a {
+  font-weight: 500;
+}
+</style>

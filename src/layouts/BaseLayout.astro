@@ -1,6 +1,7 @@
 ---
 import BaseHead from '../components/astro/BaseHead.astro';
 import Analytics from '../components/astro/Analytics.astro';
+import Collect from '../components/astro/Collect.astro';
 import CookieConsent from '../components/astro/CookieConsent.astro';
 import DarkModeScript from '../components/astro/DarkModeScript.astro';
 import { ClientRouter } from 'astro:transitions';
@@ -45,6 +46,7 @@ const colorCSS = generateColorOverrides(config) + (theme === 'editorial' ? edito
     </a>
     <slot />
     <Analytics />
+    <Collect />
     {config.cookieConsent && <CookieConsent />}
   </body>
 </html>

@@ -1,6 +1,10 @@
 <script setup lang="ts">
 /* eslint-disable @typescript-eslint/no-explicit-any -- config files are user data */
 import { computed, onMounted, ref } from 'vue';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
+import Skeleton from 'primevue/skeleton';
+import Textarea from 'primevue/textarea';
 import AdminSections from './AdminSections.vue';
 import AdminShell from './AdminShell.vue';
 import DocBanners from './DocBanners.vue';
@@ -99,10 +103,27 @@ const SCHOLAR_FIELDS: FieldDef[] = [
 ];
 
 const SECTIONS = computed(() => [
-  { id: 'keys', label: 'Keys' },
-  { id: 'writing', label: 'Writing & images', fields: AI_FIELDS.value.map((f) => f.key.split('.')[0]) },
-  { id: 'scholar', label: 'Google Scholar', fields: ['authors'] },
+  { id: 'keys', label: 'Keys', icon: 'pi-key' },
+  {
+    id: 'writing',
+    label: 'Writing & images',
+    icon: 'pi-sparkles',
+    fields: AI_FIELDS.value.map((f) => f.key.split('.')[0]),
+  },
+  { id: 'scholar', label: 'Google Scholar', icon: 'pi-google', fields: ['authors'] },
 ]);
+/** Each key card's icon and tint, by the provider its name starts with. */
+const LOOKS: [RegExp, string, string][] = [
+  [/^(OPENAI|CODEX)/, 'pi-sparkles', 'success'],
+  [/^(ANTHROPIC|CLAUDE)/, 'pi-sparkles', 'warning'],
+  [/^GEMINI/, 'pi-google', 'info'],
+  [/^HIGGSFIELD/, 'pi-image', 'pink'],
+  [/^SERPAPI/, 'pi-search', 'primary'],
+  [/^OPENALEX/, 'pi-book', 'info'],
+  [/^(ADZUNA|USAJOBS)/, 'pi-briefcase', 'secondary'],
+  [/^RESEND/, 'pi-envelope', 'primary'],
+];
+const look = (name: string) => LOOKS.find(([re]) => re.test(name)) ?? [null, 'pi-key', 'secondary'];
 const errors = computed(() => ({ ...ai.errors, ...scholar.errors }));
 
 function status(k: SecretStatus): string {
@@ -178,84 +199,92 @@ onMounted(() => {
 <template>
   <AdminShell :ctx="ctx" active="ai" title="Integrations" :dirty="ai.dirty || scholar.dirty">
     <template #actions>
-      <button
+      <Button
         v-if="section === 'writing'"
-        type="button"
-        class="adm-btn adm-btn-primary"
+        icon="pi pi-check"
+        label="Publish AI settings"
         :disabled="ai.saving || !ai.current"
         @click="publish(ai, 'ai')"
-      >
-        Publish AI settings
-      </button>
-      <button
+      />
+      <Button
         v-if="section === 'scholar'"
-        type="button"
-        class="adm-btn adm-btn-primary"
+        icon="pi pi-check"
+        label="Publish authors"
         :disabled="scholar.saving || !scholar.current"
         @click="publish(scholar, 'scholar')"
-      >
-        Publish authors
-      </button>
+      />
     </template>
     <AdminSections v-model="section" :sections="SECTIONS" :errors="errors">
       <template #keys>
-        <p class="adm-muted">
-          <template v-if="editable">
-            Keys typed here are stored encrypted in the database. Without one, the environment variable of the same name
-            is used.
-          </template>
-          <template v-else>
-            Git mode has no database: set each key as an environment variable in Vercel (Settings → Environment
-            Variables), then redeploy.
-          </template>
-        </p>
-        <ul class="adm-rows adm-keys">
-          <li v-for="k in keys" :key="k.name">
-            <span class="adm-row-label">
-              {{ k.label }}<code class="adm-row-detail">{{ k.name }}</code>
-            </span>
-            <div class="adm-row-main">
-              {{ status(k) }}
-              <span v-if="CAREER_KEY_HELP[k.name]" class="adm-row-detail">{{ CAREER_KEY_HELP[k.name] }}</span>
-              <span v-if="k.undecryptable" class="adm-err">
-                The stored key can’t be decrypted (SESSION_SECRET changed): enter it again.
+        <div class="card int-intro">
+          <span class="int-icon tint-primary" aria-hidden="true"><i class="pi pi-key" /></span>
+          <p>
+            <template v-if="editable">
+              Keys typed here are stored encrypted in the database. Without one, the environment variable of the same
+              name is used.
+            </template>
+            <template v-else>
+              Git mode has no database: set each key as an environment variable in Vercel (Settings → Environment
+              Variables), then redeploy.
+            </template>
+          </p>
+        </div>
+        <ul class="int-keys">
+          <li v-for="k in keys" :key="k.name" class="card int-key">
+            <div class="int-key-head">
+              <span :class="['int-icon', `tint-${look(k.name)[2]}`]" aria-hidden="true"
+                ><i :class="['pi', look(k.name)[1]]"
+              /></span>
+              <span class="int-key-name">
+                <span class="int-key-label">{{ k.label }}</span>
+                <code>{{ k.name }}</code>
               </span>
-              <form v-if="editable" class="adm-actions" @submit.prevent="saveKey(k.name, typed[k.name] ?? '')">
-                <textarea
-                  v-if="k.name === 'CODEX_AUTH_JSON'"
-                  v-model="typed[k.name]"
-                  rows="3"
-                  autocomplete="off"
-                  spellcheck="false"
-                  :aria-label="`New ${k.label}`"
-                  placeholder="Paste the file’s contents"
-                />
-                <input
-                  v-else
-                  v-model="typed[k.name]"
-                  type="password"
-                  autocomplete="off"
-                  :aria-label="`New ${k.label} key`"
-                  placeholder="Paste a new key"
-                />
-                <button
-                  type="submit"
-                  class="adm-btn adm-btn-small adm-btn-primary"
-                  :disabled="savingKey === k.name || !typed[k.name]"
-                >
-                  Save
-                </button>
-                <button
+              <span :class="['chip', !k.source ? 'chip-secondary' : 'chip-success']">
+                <i
+                  :class="['pi', !k.source ? 'pi-circle' : 'pi-check-circle']"
+                  class="int-chip-icon"
+                  aria-hidden="true"
+                />{{ !k.source ? 'Not set' : 'Connected' }}</span
+              >
+            </div>
+            <p v-if="k.source" class="int-status">{{ status(k) }}</p>
+            <p v-if="CAREER_KEY_HELP[k.name]" class="int-help">{{ CAREER_KEY_HELP[k.name] }}</p>
+            <p v-if="k.undecryptable" class="int-err">
+              The stored key can’t be decrypted (SESSION_SECRET changed): enter it again.
+            </p>
+            <form v-if="editable" class="int-form" @submit.prevent="saveKey(k.name, typed[k.name] ?? '')">
+              <Textarea
+                v-if="k.name === 'CODEX_AUTH_JSON'"
+                v-model="typed[k.name]"
+                rows="3"
+                autocomplete="off"
+                spellcheck="false"
+                :aria-label="`New ${k.label}`"
+                placeholder="Paste the file’s contents"
+                fluid
+              />
+              <InputText
+                v-else
+                v-model="typed[k.name]"
+                type="password"
+                autocomplete="off"
+                :aria-label="`New ${k.label} key`"
+                placeholder="Paste a new key"
+                fluid
+              />
+              <div class="int-form-actions">
+                <Button type="submit" label="Save" size="small" :disabled="savingKey === k.name || !typed[k.name]" />
+                <Button
                   v-if="k.source === 'admin' || k.undecryptable"
-                  type="button"
-                  class="adm-btn adm-btn-small"
+                  label="Clear"
+                  size="small"
+                  severity="secondary"
+                  outlined
                   :disabled="savingKey === k.name"
                   @click="saveKey(k.name, null)"
-                >
-                  Clear
-                </button>
-              </form>
-            </div>
+                />
+              </div>
+            </form>
           </li>
         </ul>
       </template>
@@ -271,12 +300,21 @@ onMounted(() => {
           @discard="ai.discard()"
           @reload="ai.reload()"
         />
-        <p class="adm-muted">
-          Write, Rewrite and Generate image in the post and news editors send the title, subtitle, summary, instruction
-          and body to the provider chosen here; for a publication, Generate image sends its title and abstract. Generate
-          GIF always uses Higgsfield. Saved to config/ai.yml.
-        </p>
-        <FormFields v-if="ai.current" :fields="AI_FIELDS" :model="ai.current" :errors="ai.errors" />
+        <section class="card" aria-labelledby="int-writing">
+          <div class="card-head int-head">
+            <span class="int-icon tint-primary" aria-hidden="true"><i class="pi pi-sparkles" /></span>
+            <div>
+              <h2 id="int-writing" class="card-title">Writing &amp; images</h2>
+              <p class="card-subtitle">
+                Write, Rewrite and Generate image in the post and news editors send the title, subtitle, summary,
+                instruction and body to the provider chosen here; for a publication, Generate image sends its title and
+                abstract. Generate GIF always uses Higgsfield. Saved to config/ai.yml.
+              </p>
+            </div>
+          </div>
+          <FormFields v-if="ai.current" :fields="AI_FIELDS" :model="ai.current" :errors="ai.errors" />
+          <Skeleton v-else height="12rem" />
+        </section>
       </template>
 
       <template #scholar>
@@ -290,38 +328,190 @@ onMounted(() => {
           @discard="scholar.discard()"
           @reload="scholar.reload()"
         />
-        <p class="adm-muted">
-          New papers on these profiles (through SerpApi) become publications and, per Writing &amp; images, draft posts
-          to review.
-          {{
-            editable ? `Checked ${schedule}, or now:` : `Check now, or let the GitHub Action sync them (${schedule}).`
-          }}
-        </p>
-        <FormFields v-if="scholar.current" :fields="SCHOLAR_FIELDS" :model="scholar.current" :errors="scholar.errors" />
-        <div class="adm-actions">
-          <button type="button" class="adm-btn" :disabled="checking" @click="checkNow">
-            {{ checking ? 'Checking…' : 'Check now' }}
-          </button>
-          <span class="adm-muted"
-            >Last new papers: {{ lastRun ? new Date(lastRun).toLocaleString() : 'none yet' }}</span
-          >
-        </div>
-        <div v-if="checked && !checked.skipped" class="adm-card" role="status">
-          <p>
-            Imported {{ checked.imported.length }} · drafted {{ checked.posts.length }}
-            <template v-if="checked.deferred.length"> · {{ checked.deferred.length }} left for the next run</template>
-            <template v-if="checked.failed.length"> · {{ checked.failed.length }} failed</template>
+        <section class="card" aria-labelledby="int-scholar">
+          <div class="card-head int-head">
+            <span class="int-icon tint-info" aria-hidden="true"><i class="pi pi-google" /></span>
+            <div>
+              <h2 id="int-scholar" class="card-title">Google Scholar</h2>
+              <p class="card-subtitle">
+                New papers on these profiles (through SerpApi) become publications and, per Writing &amp; images, draft
+                posts to review.
+                {{
+                  editable
+                    ? `Checked ${schedule}, or now:`
+                    : `Check now, or let the GitHub Action sync them (${schedule}).`
+                }}
+              </p>
+            </div>
+          </div>
+          <FormFields
+            v-if="scholar.current"
+            :fields="SCHOLAR_FIELDS"
+            :model="scholar.current"
+            :errors="scholar.errors"
+          />
+          <Skeleton v-else height="8rem" />
+          <div class="int-check">
+            <Button
+              icon="pi pi-refresh"
+              :label="checking ? 'Checking…' : 'Check now'"
+              severity="secondary"
+              outlined
+              :loading="checking"
+              @click="checkNow"
+            />
+            <span class="int-muted"
+              >Last new papers: {{ lastRun ? new Date(lastRun).toLocaleString() : 'none yet' }}</span
+            >
+          </div>
+        </section>
+        <section v-if="checked && !checked.skipped" class="card int-result" role="status">
+          <p class="int-result-line">
+            <span class="int-icon tint-success" aria-hidden="true"><i class="pi pi-check" /></span>
+            <span>
+              Imported {{ checked.imported.length }} · drafted {{ checked.posts.length }}
+              <template v-if="checked.deferred.length"> · {{ checked.deferred.length }} left for the next run</template>
+              <template v-if="checked.failed.length"> · {{ checked.failed.length }} failed</template>
+            </span>
           </p>
-          <ul v-if="checked.posts.length">
-            <li v-for="slug in checked.posts" :key="slug">
-              <a :href="`${base}/posts/${slug}`">{{ slug }}</a> (draft)
+          <ul v-if="checked.posts.length" class="int-list">
+            <li v-for="slug in checked.posts" :key="slug" class="list-row">
+              <span
+                ><a :href="`${base}/posts/${slug}`" class="list-row-title">{{ slug }}</a> (draft)</span
+              >
             </li>
           </ul>
-          <ul v-if="checked.failed.length">
-            <li v-for="f in checked.failed" :key="f.item" class="adm-err">{{ f.item }}: {{ f.error }}</li>
+          <ul v-if="checked.failed.length" class="int-list">
+            <li v-for="f in checked.failed" :key="f.item" class="list-row int-err">{{ f.item }}: {{ f.error }}</li>
           </ul>
-        </div>
+        </section>
       </template>
     </AdminSections>
   </AdminShell>
 </template>
+
+<style scoped>
+.int-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  font-size: 1.05rem;
+}
+.int-intro {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-block: 1rem;
+}
+.int-intro p {
+  margin: 0;
+  color: var(--app-body);
+  font-size: 0.875rem;
+}
+.int-head {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  margin-block-end: 1.5rem;
+}
+.int-keys {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.int-key {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.25rem;
+}
+.int-key-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+.int-key-name {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.int-key-label {
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.int-key-name code {
+  overflow: hidden;
+  color: var(--app-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.int-chip-icon {
+  font-size: 0.7rem;
+}
+.int-status,
+.int-help,
+.int-err {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+.int-status {
+  color: var(--app-heading);
+  font-weight: 500;
+}
+.int-help {
+  color: var(--app-muted);
+}
+.int-err {
+  color: var(--c-danger);
+}
+.int-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-block-start: auto;
+}
+.int-form-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.int-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-block-start: 1.5rem;
+  padding-block-start: 1.25rem;
+  border-top: 1px dashed var(--app-border);
+}
+.int-muted {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.int-result-line {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+  color: var(--app-heading);
+  font-weight: 500;
+}
+.int-list {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+a.list-row-title {
+  text-decoration: none;
+}
+</style>

@@ -6,10 +6,11 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
  * opens the first section; later, a hash naming no section (the skip link's #adm-main) leaves the open one.
  * `fields`: the error-key prefixes a section owns; a section with a save error shows a dot, and a new error key opens
  * its section (a save or reload of another document replaces the errors but keeps older ones: no jump).
- * Each section's content is the slot named by its id.
+ * Each section's content is the slot named by its id. `icon`: a PrimeIcons name (e.g. `pi-cog`) shown before the label.
+ * At 1200px and wider the sections are a card-style list beside the open one; narrower, a sideways-scrolling tab row.
  */
 const props = defineProps<{
-  sections: { id: string; label: string; fields?: string[] }[];
+  sections: { id: string; label: string; fields?: string[]; icon?: string }[];
   errors?: Record<string, string>;
 }>();
 const active = defineModel<string>({ default: '' });
@@ -62,27 +63,29 @@ onBeforeUnmount(() => removeEventListener('hashchange', fromHash));
 </script>
 
 <template>
-  <div class="adm-sections">
-    <div ref="list" class="adm-tabs" role="tablist" aria-label="Sections" @keydown="onKey">
+  <div class="sec">
+    <div ref="list" class="sec-nav card" role="tablist" aria-label="Sections" @keydown="onKey">
       <button
         v-for="s in sections"
         :id="`adm-tab-${s.id}`"
         :key="s.id"
         type="button"
         role="tab"
+        class="sec-tab"
         :aria-selected="s.id === active"
         :aria-controls="`adm-panel-${s.id}`"
         :tabindex="s.id === active ? 0 : -1"
         @click="open(s.id)"
       >
-        {{ s.label
-        }}<span v-if="hasError(s)" class="adm-tab-error"><span class="adm-visually-hidden">(has errors)</span></span>
+        <i v-if="s.icon" :class="['pi', s.icon]" aria-hidden="true" />
+        <span class="sec-label">{{ s.label }}</span
+        ><span v-if="hasError(s)" class="sec-error"><span class="adm-visually-hidden">(has errors)</span></span>
       </button>
     </div>
     <div
       v-if="active"
       :id="`adm-panel-${active}`"
-      class="adm-section"
+      class="sec-panel"
       role="tabpanel"
       :aria-labelledby="`adm-tab-${active}`"
     >
@@ -90,3 +93,127 @@ onBeforeUnmount(() => removeEventListener('hashchange', fromHash));
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Narrow: a sideways-scrolling tab row in a card, the open tab underlined (Conca's profile tabs). */
+.sec {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.sec-nav {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+  overflow-x: auto;
+  scroll-padding-inline: 1rem;
+  scrollbar-width: none;
+}
+.sec-tab {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 3.25rem;
+  padding: 0 0.875rem;
+  border: 0;
+  background: none;
+  color: var(--app-body);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.sec-tab::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0.5rem;
+  inset-block-end: 0;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: transparent;
+}
+.sec-tab:hover {
+  color: var(--app-heading);
+}
+.sec-tab[aria-selected='true'] {
+  color: var(--p-primary-color);
+}
+.sec-tab[aria-selected='true']::after {
+  background: var(--p-primary-color);
+}
+.sec-tab:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: -2px;
+  border-radius: 0.5rem;
+}
+.sec-tab > .pi {
+  font-size: 1rem;
+}
+.sec-error {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--c-danger);
+}
+.sec-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* Wide: a sticky card of sections beside the open one (Conca's account settings). */
+@media (min-width: 1200px) {
+  .sec {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  .sec-nav {
+    position: sticky;
+    inset-block-start: calc(var(--app-header-height) + 1.5rem);
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.75rem;
+    overflow: visible;
+  }
+  .sec-tab {
+    min-height: 0;
+    padding: 0.75rem 0.875rem;
+    border-radius: 0.5rem;
+    white-space: normal;
+    text-align: start;
+  }
+  .sec-tab::after {
+    display: none;
+  }
+  .sec-tab + .sec-tab::before {
+    content: '';
+    position: absolute;
+    inset-inline: 0.875rem;
+    inset-block-start: -0.0625rem;
+    border-top: 1px solid var(--app-border);
+  }
+  .sec-tab:hover {
+    background: var(--app-menu-hover);
+  }
+  .sec-tab[aria-selected='true'] {
+    background: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
+  }
+  .sec-tab[aria-selected='true']::before,
+  .sec-tab[aria-selected='true'] + .sec-tab::before,
+  .sec-tab:hover::before,
+  .sec-tab:hover + .sec-tab::before {
+    border-color: transparent;
+  }
+  .sec-label {
+    flex: 1;
+  }
+}
+</style>

@@ -1,5 +1,6 @@
 ---
 import Ai from '../Ai.vue';
+import Analytics from '../Analytics.vue';
 import Career from '../Career.vue';
 import CareerJob from '../CareerJob.vue';
 import CareerSettings from '../CareerSettings.vue';
@@ -38,11 +39,13 @@ import { authorOf } from '../../lib/admin/http';
 import { adminSettings, canPublish, isOwner } from '../../lib/admin/settings';
 import '../../themes/editorial/editorial.css';
 import '../admin.css';
+import '../prime/admin.css';
 
 const { adminPath, siteName } = adminSettings();
 const [screen = '', arg = '', sub = '', ...rest] = (Astro.params.path ?? '').split('/');
 const SCREENS = new Set([
   '',
+  'analytics',
   'login',
   'media',
   'posts',
@@ -62,6 +65,7 @@ const CONTENT = ['announcements', 'people', 'projects', 'talks', 'positions'];
 if (!SCREENS.has(screen)) return new Response('Not found', { status: 404 });
 if (screen === 'content' && !CONTENT.includes(arg)) return new Response('Not found', { status: 404 });
 if (screen === 'users' && getMode() !== 'postgres') return new Response('Not found', { status: 404 });
+if (screen === 'analytics' && getMode() !== 'postgres') return new Response('Not found', { status: 404 });
 if (
   screen === 'career' &&
   (getMode() !== 'postgres' ||
@@ -152,10 +156,18 @@ const firstRun =
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
     />
+    <script is:inline>
+      // The admin's light/dark choice (AdminShell), applied before first paint.
+      try {
+        const t = localStorage.getItem('adm-theme') || 'system';
+        if (t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches))
+          document.documentElement.classList.add('app-dark');
+      } catch (e) {}
+    </script>
   </head>
-  <body class="adm">
+  <body class="adm" data-admin>
     {screen === 'login' && (
       <Login
         client:only="vue"
@@ -169,6 +181,7 @@ const firstRun =
         homeHref={import.meta.env.BASE_URL}
       />
     )}
+    {screen === 'analytics' && <Analytics client:only="vue" ctx={ctx} />}
     {screen === 'media' && <Media client:only="vue" ctx={ctx} />}
     {screen === 'pages' && <Pages client:only="vue" ctx={ctx} />}
     {screen === 'settings' && <Settings client:only="vue" ctx={ctx} />}

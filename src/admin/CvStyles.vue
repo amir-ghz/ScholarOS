@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRaw, watch } from 'vue';
 import { parse, stringify } from 'yaml';
+import Button from 'primevue/button';
+import Select from 'primevue/select';
+import Textarea from 'primevue/textarea';
 import AdminShell from './AdminShell.vue';
 import AdminTabLinks from './AdminTabLinks.vue';
 import DesignForm from './DesignForm.vue';
@@ -34,6 +37,14 @@ const LABELS: Record<string, string> = {
   moderncv: 'ModernCV',
 };
 const label = (theme: string) => LABELS[theme] ?? theme[0].toUpperCase() + theme.slice(1);
+const densityLabel = (d: Density) => DENSITIES.find(([k]) => k === d)?.[1] ?? d;
+const THEME_OPTIONS = computed(() => [
+  ...builtIn.value.map((t) => ({ value: t, label: label(t) })),
+  ...themes.value.map((t) => ({ value: t, label: `${t} (uploaded)` })),
+  ...(style.value && ![...builtIn.value, ...themes.value].includes(style.value.theme)
+    ? [{ value: style.value.theme, label: `${style.value.theme} (missing)` }]
+    : []),
+]);
 
 onMounted(() => {
   void doc.open('config/cv-styles', async () => {
@@ -233,9 +244,7 @@ onBeforeUnmount(() => {
 <template>
   <AdminShell :ctx="ctx" active="cv-styles" title="CV" :dirty="doc.dirty">
     <template #actions>
-      <button type="button" class="adm-btn adm-btn-primary" :disabled="doc.saving || !doc.current" @click="save">
-        Publish styles
-      </button>
+      <Button icon="pi pi-check" label="Publish styles" :disabled="doc.saving || !doc.current" @click="save" />
     </template>
     <AdminTabLinks
       label="CV"
@@ -255,128 +264,541 @@ onBeforeUnmount(() => {
       @reload="doc.reload()"
     />
 
-    <div v-if="doc.current" class="adm-styles">
-      <section aria-labelledby="adm-my-styles" class="adm-form">
-        <h2 id="adm-my-styles" class="adm-nav-label">My styles</h2>
-        <ul class="adm-pick">
-          <li v-for="s in styles" :key="s.id">
-            <button type="button" :aria-current="s.id === selectedId" @click="select(s.id)">
-              <span>{{ s.name }}</span>
-              <span v-if="s.id === doc.current.public" class="adm-muted">Public</span>
-            </button>
+    <div v-if="doc.current" class="sty">
+      <section aria-labelledby="adm-my-styles" class="card">
+        <div class="card-head">
+          <h2 id="adm-my-styles" class="card-title">
+            <i class="pi pi-palette text-primary" aria-hidden="true" /> My styles
+          </h2>
+          <div v-if="style" class="sty-actions">
+            <Button icon="pi pi-pencil" label="Rename" size="small" severity="secondary" outlined @click="rename" />
+            <Button
+              icon="pi pi-clone"
+              label="Duplicate"
+              size="small"
+              severity="secondary"
+              outlined
+              @click="duplicate"
+            />
+            <Button
+              icon="pi pi-trash"
+              :label="confirmDelete ? 'Click again to delete' : 'Delete'"
+              size="small"
+              severity="danger"
+              :outlined="!confirmDelete"
+              :disabled="styles.length < 2"
+              @click="remove"
+            />
+          </div>
+        </div>
+        <ul class="sty-grid">
+          <li v-for="s in styles" :key="s.id" class="sty-tile" :class="{ 'is-selected': s.id === selectedId }">
+            <span class="sty-paper" aria-hidden="true">
+              <span class="sty-paper-name" />
+              <span class="sty-paper-rule" />
+              <span /><span /><span class="is-short" />
+              <span class="sty-paper-rule" />
+              <span /><span class="is-short" />
+            </span>
+            <span class="sty-tile-text">
+              <button type="button" class="sty-pick" :aria-current="s.id === selectedId" @click="select(s.id)">
+                <span class="sty-name">{{ s.name }}</span>
+                <span v-if="s.id === doc.current.public" class="chip chip-success">Public</span>
+              </button>
+              <span class="sty-meta">{{ label(s.theme) }} · {{ densityLabel(s.density) }}</span>
+            </span>
           </li>
         </ul>
-        <div v-if="style" class="adm-actions">
-          <button type="button" class="adm-btn adm-btn-small" @click="rename">Rename</button>
-          <button type="button" class="adm-btn adm-btn-small" @click="duplicate">Duplicate</button>
-          <button
-            type="button"
-            class="adm-btn adm-btn-small adm-btn-danger"
-            :disabled="styles.length < 2"
-            @click="remove"
-          >
-            {{ confirmDelete ? 'Click again to delete' : 'Delete' }}
-          </button>
-        </div>
+      </section>
 
-        <h2 id="adm-built-in" class="adm-nav-label">Built-in themes</h2>
-        <ul class="adm-pick" aria-labelledby="adm-built-in">
+      <div v-if="style" class="sty-work">
+        <section aria-labelledby="sty-settings" class="card sty-settings">
+          <div class="card-head">
+            <h2 id="sty-settings" class="card-title">
+              <i class="pi pi-sliders-h text-primary" aria-hidden="true" /> Style settings
+            </h2>
+          </div>
+          <div class="sty-field">
+            <span id="sty-theme">Theme</span>
+            <Select
+              v-model="style.theme"
+              :options="THEME_OPTIONS"
+              option-label="label"
+              option-value="value"
+              aria-labelledby="sty-theme"
+              fluid
+            />
+          </div>
+          <div class="sty-field">
+            <span aria-hidden="true">Density</span>
+            <div class="sty-segments" role="group" aria-label="Density">
+              <button
+                v-for="[d, name] in DENSITIES"
+                :key="d"
+                type="button"
+                :aria-pressed="style.density === d"
+                @click="style.density = d"
+              >
+                {{ name }}
+              </button>
+            </div>
+          </div>
+          <p class="sty-hint">Empty fields inherit the theme and density shown in grey.</p>
+          <DesignForm :groups="groups" :design="style.design" />
+          <details class="sty-advanced">
+            <summary>
+              <span>Advanced</span>
+              <i class="pi pi-chevron-down sty-chevron" aria-hidden="true" />
+            </summary>
+            <label class="sty-field sty-yaml">
+              <span>Design YAML (RenderCV <code>design</code> keys)</span>
+              <Textarea
+                :model-value="yamlText"
+                rows="12"
+                spellcheck="false"
+                :aria-invalid="!!yamlError || undefined"
+                :invalid="!!yamlError"
+                fluid
+                @update:model-value="editYaml($event)"
+              />
+              <span v-if="yamlError" class="sty-err">{{ yamlError }}</span>
+            </label>
+          </details>
+        </section>
+
+        <section aria-labelledby="sty-preview" class="card sty-preview">
+          <div class="card-head">
+            <h2 id="sty-preview" class="card-title">
+              <i class="pi pi-file-pdf text-primary" aria-hidden="true" /> Preview
+            </h2>
+            <div class="sty-actions">
+              <span v-if="rendering" class="sty-rendering" role="status"
+                ><i class="pi pi-spin pi-spinner" aria-hidden="true" /> Rendering…</span
+              >
+              <Button
+                :icon="style.id === doc.current.public ? 'pi pi-check-circle' : 'pi pi-globe'"
+                label="Set as public download"
+                size="small"
+                severity="secondary"
+                :outlined="style.id !== doc.current.public"
+                :aria-pressed="style.id === doc.current.public"
+                :class="{ 'is-pressed': style.id === doc.current.public }"
+                @click="setPublic"
+              />
+              <Button
+                v-if="pdfUrl"
+                as="a"
+                icon="pi pi-download"
+                label="Download PDF"
+                size="small"
+                :href="pdfUrl"
+                :download="`${style.id}.pdf`"
+              />
+            </div>
+          </div>
+          <!-- RenderCV's validation errors are a box-drawn table: keep its columns. -->
+          <pre v-if="renderError" class="sty-error" role="alert">{{ renderError }}</pre>
+          <iframe v-if="pdfUrl" :src="pdfUrl" title="CV preview" />
+          <div v-else-if="!rendering && !renderError" class="empty-state">
+            <i class="pi pi-file" aria-hidden="true" />
+            <p>The preview appears here.</p>
+          </div>
+        </section>
+      </div>
+
+      <section aria-labelledby="adm-built-in" class="card">
+        <div class="card-head">
+          <div>
+            <h2 id="adm-built-in" class="card-title">
+              <i class="pi pi-th-large text-primary" aria-hidden="true" /> Built-in themes
+            </h2>
+          </div>
+        </div>
+        <ul class="sty-themes" aria-labelledby="adm-built-in">
           <li v-for="t in builtIn" :key="t">
             <button type="button" :aria-label="`Use ${label(t)} as a new style`" @click="useTheme(t)">
               <span>{{ label(t) }}</span
-              ><span class="adm-muted">+ New</span>
+              ><span class="sty-new"><i class="pi pi-plus" aria-hidden="true" /> New</span>
             </button>
           </li>
         </ul>
 
         <template v-if="themes.length || ctx.canPublish">
-          <h2 id="adm-uploaded" class="adm-nav-label">Uploaded themes</h2>
-          <ul v-if="themes.length" class="adm-pick" aria-labelledby="adm-uploaded">
-            <li v-for="t in themes" :key="t" class="adm-list-row">
+          <h2 id="adm-uploaded" class="card-title sty-subhead">
+            <i class="pi pi-upload text-primary" aria-hidden="true" /> Uploaded themes
+          </h2>
+          <ul v-if="themes.length" class="sty-themes" aria-labelledby="adm-uploaded">
+            <li v-for="t in themes" :key="t" class="sty-uploaded">
               <button type="button" :aria-label="`Use ${t} as a new style`" @click="useTheme(t)">
                 <span>{{ t }}</span
-                ><span class="adm-muted">+ New</span>
+                ><span class="sty-new"><i class="pi pi-plus" aria-hidden="true" /> New</span>
               </button>
-              <button
+              <Button
                 v-if="ctx.canPublish"
-                type="button"
-                class="adm-btn adm-btn-small adm-btn-danger"
+                :icon="confirmTheme === t ? undefined : 'pi pi-trash'"
+                :label="confirmTheme === t ? 'Confirm' : 'Delete'"
+                size="small"
+                severity="danger"
+                :outlined="confirmTheme !== t"
                 :aria-label="confirmTheme === t ? `Click again to delete ${t}` : `Delete theme ${t}`"
                 @click="deleteTheme(t)"
-              >
-                {{ confirmTheme === t ? 'Confirm' : 'Delete' }}
-              </button>
+              />
             </li>
           </ul>
-          <label v-if="ctx.canPublish" class="adm-field">
+          <label v-if="ctx.canPublish" class="sty-field sty-upload">
             <span>Upload theme</span>
             <input type="file" webkitdirectory multiple @change="uploadTheme" />
             <small>A folder of RenderCV Typst templates (*.j2.typ). Uploading the same name replaces it.</small>
           </label>
         </template>
       </section>
-
-      <section v-if="style" aria-label="Style settings" class="adm-form">
-        <label class="adm-field">
-          <span>Theme</span>
-          <select v-model="style.theme">
-            <option v-for="t in builtIn" :key="t" :value="t">{{ label(t) }}</option>
-            <option v-for="t in themes" :key="t" :value="t">{{ t }} (uploaded)</option>
-            <option v-if="![...builtIn, ...themes].includes(style.theme)" :value="style.theme">
-              {{ style.theme }} (missing)
-            </option>
-          </select>
-        </label>
-        <div class="adm-actions" role="group" aria-label="Density">
-          <button
-            v-for="[d, name] in DENSITIES"
-            :key="d"
-            type="button"
-            class="adm-btn adm-btn-small"
-            :aria-pressed="style.density === d"
-            @click="style.density = d"
-          >
-            {{ name }}
-          </button>
-        </div>
-        <p class="adm-muted">Empty fields inherit the theme and density shown in grey.</p>
-        <DesignForm :groups="groups" :design="style.design" />
-        <details class="adm-group adm-design-group">
-          <summary>Advanced</summary>
-          <label class="adm-field">
-            <span>Design YAML (RenderCV <code>design</code> keys)</span>
-            <textarea
-              :value="yamlText"
-              rows="12"
-              spellcheck="false"
-              :aria-invalid="!!yamlError || undefined"
-              @input="editYaml(($event.target as HTMLTextAreaElement).value)"
-            />
-            <span v-if="yamlError" class="adm-err">{{ yamlError }}</span>
-          </label>
-        </details>
-      </section>
-
-      <section v-if="style" aria-label="Preview" class="adm-form adm-styles-preview">
-        <div class="adm-actions">
-          <button
-            type="button"
-            class="adm-btn adm-btn-small"
-            :aria-pressed="style.id === doc.current.public"
-            @click="setPublic"
-          >
-            Set as public download
-          </button>
-          <a v-if="pdfUrl" class="adm-btn adm-btn-small" :href="pdfUrl" :download="`${style.id}.pdf`">Download PDF</a>
-          <span v-if="rendering" class="adm-muted" role="status">Rendering…</span>
-        </div>
-        <!-- RenderCV's validation errors are a box-drawn table: keep its columns. -->
-        <pre v-if="renderError" class="adm-banner adm-banner-error adm-styles-error" role="alert">{{
-          renderError
-        }}</pre>
-        <iframe v-if="pdfUrl" :src="pdfUrl" title="CV preview" />
-        <p v-else-if="!rendering && !renderError" class="adm-muted">The preview appears here.</p>
-      </section>
     </div>
   </AdminShell>
 </template>
+
+<style scoped>
+.sty {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-block-start: 1.25rem;
+}
+.sty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* My styles: one card per style, a sketch of a page above its name. */
+.sty-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12.5rem, 1fr));
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sty-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding: 0.875rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+  background: var(--app-card);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+.sty-tile:hover {
+  border-color: color-mix(in srgb, var(--p-primary-color) 40%, var(--app-border));
+}
+.sty-tile.is-selected {
+  border-color: var(--p-primary-color);
+  background: color-mix(in srgb, var(--p-primary-color) 6%, var(--app-card));
+  box-shadow: 0 0 0 1px var(--p-primary-color);
+}
+.sty-tile:has(.sty-pick:focus-visible) {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 2px;
+}
+.sty-paper {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.1875rem;
+  width: 2.75rem;
+  height: 3.5rem;
+  padding: 0.375rem 0.3125rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.25rem;
+  background: #fff;
+  box-shadow: var(--app-shadow-card);
+}
+.sty-paper > span {
+  height: 0.125rem;
+  border-radius: 1px;
+  background: #d6d5dd;
+}
+.sty-paper > .is-short {
+  width: 60%;
+}
+.sty-paper > .sty-paper-name {
+  width: 70%;
+  height: 0.25rem;
+  margin-inline: auto;
+  background: var(--p-primary-color);
+}
+.sty-paper > .sty-paper-rule {
+  height: 0.0625rem;
+  margin-block-start: 0.125rem;
+  background: var(--p-primary-color);
+}
+.sty-tile-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.sty-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--app-heading);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.sty-pick:focus-visible {
+  outline: none;
+}
+/* The whole card picks the style. */
+.sty-pick::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+.sty-name {
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sty-tile.is-selected .sty-name {
+  color: var(--p-primary-color);
+}
+.sty-meta {
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+/* Settings beside the preview; stacked under 1200px. */
+.sty-work {
+  display: grid;
+  grid-template-columns: minmax(20rem, 27rem) minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 1199.98px) {
+  .sty-work {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.sty-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.sty-settings > .card-head {
+  margin: 0;
+}
+.sty-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+.sty-field > span:first-child {
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.sty-field small,
+.sty-hint {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.sty-segments {
+  display: inline-flex;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+}
+.sty-segments button {
+  flex: 1;
+  padding: 0.4375rem 0.75rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  color: var(--app-body);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+.sty-segments button:hover {
+  color: var(--app-heading);
+}
+.sty-segments button[aria-pressed='true'] {
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-card);
+  color: var(--p-primary-color);
+}
+.sty-advanced {
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+}
+.sty-advanced > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: 0.625rem;
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+}
+.sty-advanced > summary::-webkit-details-marker {
+  display: none;
+}
+.sty-advanced > summary:hover {
+  background: var(--app-menu-hover);
+}
+.sty-advanced[open] > summary {
+  border-bottom: 1px solid var(--app-border);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
+}
+.sty-advanced[open] .sty-chevron {
+  transform: rotate(180deg);
+}
+.sty-chevron {
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  transition: transform 0.2s;
+}
+.sty-yaml {
+  padding: 1rem;
+}
+.sty-yaml :deep(textarea) {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+.sty-err {
+  color: var(--c-danger);
+  font-size: 0.8125rem;
+}
+
+.sty-preview {
+  position: sticky;
+  inset-block-start: calc(var(--app-header-height) + 1rem);
+}
+@media (max-width: 1199.98px) {
+  .sty-preview {
+    position: static;
+  }
+}
+.sty-preview iframe {
+  display: block;
+  width: 100%;
+  height: min(80vh, 1100px);
+  border: 1px solid var(--app-border);
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+}
+.sty-preview .empty-state {
+  min-height: 20rem;
+  border: 1px dashed var(--app-border);
+  border-radius: 0.5rem;
+}
+.sty-preview .empty-state p {
+  margin: 0;
+}
+.sty-rendering {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.sty-preview .is-pressed {
+  border-color: color-mix(in srgb, var(--c-success) 40%, transparent);
+  background: color-mix(in srgb, var(--c-success) 14%, transparent);
+  color: var(--c-success);
+}
+.sty-error {
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--c-danger) 8%, var(--app-card));
+  box-shadow: inset 4px 0 0 var(--c-danger);
+  color: var(--app-heading);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+/* Themes to start a style from. */
+.sty-themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sty-themes button:not(.p-button) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 0.875rem;
+  border: 1px dashed var(--app-border);
+  border-radius: 0.625rem;
+  background: none;
+  color: var(--app-heading);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.sty-themes button:not(.p-button):hover {
+  border-color: var(--p-primary-color);
+  background: color-mix(in srgb, var(--p-primary-color) 5%, transparent);
+}
+.sty-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--p-primary-color);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.sty-new .pi {
+  font-size: 0.625rem;
+}
+.sty-uploaded {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.sty-subhead {
+  margin-block: 1.75rem 1rem;
+  padding-block-start: 1.25rem;
+  border-top: 1px dashed var(--app-border);
+}
+.sty-upload {
+  margin-block-start: 1rem;
+}
+.sty-upload input[type='file'] {
+  padding: 0.875rem;
+  border: 1px dashed var(--app-border);
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+  color: var(--app-body);
+  font: inherit;
+  font-size: 0.875rem;
+}
+</style>

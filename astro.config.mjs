@@ -61,6 +61,23 @@ export default defineConfig({
   markdown: markdownOptions,
   vite: {
     plugins: [tailwindcss()],
+    // The admin's PrimeVue parts, pre-bundled up front: found one at a time, each would make Vite reload the page.
+    optimizeDeps: {
+      include: [
+        'primevue/config',
+        'primevue/toastservice',
+        'primevue/confirmationservice',
+        'primevue/tooltip',
+        ...['button', 'menu', 'popover', 'inputtext', 'textarea', 'select', 'multiselect', 'checkbox', 'toggleswitch']
+          .concat(['datatable', 'column', 'tag', 'dialog', 'confirmdialog', 'chart', 'skeleton', 'selectbutton'])
+          .concat(['iconfield', 'inputicon', 'message', 'password', 'progressbar', 'datepicker', 'inputnumber'])
+          .map((c) => `primevue/${c}`),
+        '@primeuix/themes',
+        '@primeuix/themes/aura',
+        'chart.js/auto',
+        'jsvectormap',
+      ],
+    },
     build: {
       modulePreload: {
         polyfill: true,

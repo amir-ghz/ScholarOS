@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
-import AdminTabLinks from './AdminTabLinks.vue';
+import Button from 'primevue/button';
+import Skeleton from 'primevue/skeleton';
 import AdminShell from './AdminShell.vue';
+import StatCard from './ui/StatCard.vue';
+import DigestRow from './ui/reading/DigestRow.vue';
+import ReadingNav from './ui/reading/ReadingNav.vue';
 import { api, report, toast } from './api';
 import { formatDate, relativeTime } from './dates';
 import { isRunning, visible } from './career';
-import { SOURCE_NAMES, authorsLine, dayLine, readingRunLine, readingRunNotes, thinLine } from './reading';
+import { SOURCE_NAMES, dayLine, readingRunLine, readingRunNotes, thinLine } from './reading';
 import type { AdminCtx } from './types';
 import type { ReadingPrefs } from '../lib/reading/settings';
 import type { DigestItem, DigestSection, PaperState, ReadingRun } from '../lib/reading/types';
@@ -51,14 +55,17 @@ function thin(s: DigestSection): string | null {
   const max = s === 'talked' ? prefs.value.talked : prefs.value.inField;
   return thinLine(s, inSection(newest.value, s).length, max, prefs.value.area, last);
 }
-const meta = (i: DigestItem) =>
-  [
-    authorsLine(i.paper.authors),
-    SOURCE_NAMES[i.paper.source] ?? i.paper.source,
-    i.paper.publishedAt && formatDate(i.paper.publishedAt),
-  ]
-    .filter(Boolean)
-    .join(' · ');
+// The stat tiles: the newest day's digest, read from what the page already loaded.
+const SECTION_LOOK: Record<DigestSection, { icon: string; tint: string }> = {
+  talked: { icon: 'pi-comments', tint: 'pink' },
+  field: { icon: 'pi-star', tint: 'primary' },
+  unranked: { icon: 'pi-list', tint: 'secondary' },
+};
+const tile = (n: number | undefined) => (loading.value || n === undefined ? '–' : String(n));
+const savedCount = computed(
+  () =>
+    new Set(days.value.flatMap((d) => d.items.filter((i) => i.paper.state === 'saved').map((i) => i.paper.id))).size,
+);
 
 /** The newest day and a week before it in one request; later pages a week at a time. */
 async function load(before?: string) {
@@ -186,107 +193,442 @@ onBeforeUnmount(stop);
 
 <template>
   <AdminShell :ctx="ctx" active="reading" title="Reading">
-    <AdminTabLinks
-      label="Reading"
-      :tabs="[
-        { href: `${base}/reading`, label: 'Today', current: true },
-        { href: `${base}/reading/library`, label: 'Library' },
-        { href: `${base}/reading/notebooks`, label: 'Notebooks' },
-        { href: `${base}/reading/vault`, label: 'Vault' },
-        { href: `${base}/reading/settings`, label: 'Settings' },
-      ]"
-    />
-    <div v-if="!runKnown" class="adm-verdict" aria-hidden="true"><span class="adm-skel-bar" /></div>
-    <div v-else class="adm-verdict adm-run" :class="{ 'is-attention': run.status === 'failed' }">
-      <p role="status">
-        <template v-if="run.status === 'failed'">The last run failed. </template>
-        <template v-if="run.lastRun">
-          {{ run.status === 'failed' ? 'Last finished run' : 'Last run' }} {{ relativeTime(run.lastRun.at) }} ·
-          {{ readingRunLine(run.lastRun) }}
-        </template>
-        <template v-else-if="run.status !== 'failed'">No run yet. The digest runs every night.</template>
-      </p>
-      <button type="button" class="adm-btn adm-btn-primary" :disabled="running" @click="runNow">
-        {{ running ? 'Running…' : 'Run now' }}
-      </button>
+    <ReadingNav :base="base" current="today" />
+
+    <div class="rd-stats">
+      <StatCard
+        icon="pi-sun"
+        tint="warning"
+        label="Today’s digest"
+        :value="tile(newest?.items.length ?? (loading ? undefined : 0))"
+        :against="newest ? formatDate(newest.day) : undefined"
+      />
+      <StatCard
+        icon="pi-comments"
+        tint="pink"
+        label="People are talking about"
+        :value="tile(newest ? inSection(newest, 'talked').length : loading ? undefined : 0)"
+        :against="prefs ? `up to ${prefs.talked}` : undefined"
+      />
+      <StatCard
+        icon="pi-star"
+        tint="primary"
+        label="New in your field"
+        :value="tile(newest ? inSection(newest, 'field').length : loading ? undefined : 0)"
+        :against="prefs ? `up to ${prefs.inField}` : undefined"
+      />
+      <StatCard
+        icon="pi-bookmark"
+        tint="success"
+        label="Saved"
+        :value="tile(savedCount)"
+        against="Library"
+        :href="`${base}/reading/library`"
+      />
     </div>
-    <template v-if="run.lastRun">
-      <div v-if="readingRunNotes(run.lastRun).length" class="adm-run-notes" role="status">
-        <p v-for="note in readingRunNotes(run.lastRun)" :key="note" class="adm-err">{{ note }}</p>
+
+    <section class="card rd-run" :class="{ 'is-attention': run.status === 'failed' }" aria-label="Nightly run">
+      <div v-if="!runKnown" class="rd-run-strip" aria-hidden="true">
+        <Skeleton shape="circle" size="2.75rem" />
+        <Skeleton height="1.25rem" class="rd-run-skel" />
       </div>
-      <details v-if="run.lastRun.sources.length" class="adm-nav-more" :open="run.lastRun.sources.some((s) => s.error)">
-        <summary>By source ({{ run.lastRun.sources.length }})</summary>
-        <ul class="adm-rows">
-          <li v-for="s in run.lastRun.sources" :key="s.id">
-            <span class="adm-row-label">{{ SOURCE_NAMES[s.id] ?? s.id }}</span>
-            <span class="adm-row-main">
-              found {{ s.found }} · added {{ s.added }}
-              <span v-if="s.skipped" class="adm-row-detail">Skipped: {{ visible(s.skipped) }}</span>
-              <span v-if="s.error" class="adm-row-detail adm-err">{{ visible(s.error) }}</span>
-            </span>
-          </li>
-        </ul>
-      </details>
-    </template>
-
-    <p v-if="loading" class="adm-muted">Loading…</p>
-    <p v-else-if="!newest" class="adm-muted">
-      No digest yet. Choose your field and sources in <a :href="`${base}/reading/settings`">Settings</a>; the digest
-      arrives every morning.
-    </p>
-    <template v-else>
-      <template v-for="[s, head] in SECTIONS" :key="s">
-        <template v-if="inSection(newest, s).length || thin(s)">
-          <h2 class="adm-h2">{{ head }}</h2>
-          <ul v-if="inSection(newest, s).length" class="adm-rows">
-            <li v-for="i in inSection(newest, s)" :key="i.paper.id" :data-row="rowKey(newest, i)">
-              <span class="adm-row-main">
-                <a :href="`${base}/reading/papers/${i.paper.id}`">{{ visible(i.paper.title) }}</a>
-                <span class="adm-row-detail"
-                  >{{ meta(i) }} · <a :href="i.paper.url" target="_blank" rel="noopener noreferrer">Source</a></span
-                >
-                <span class="adm-row-detail">{{ visible(i.line) }}</span>
-              </span>
-              <span class="adm-row-action adm-reading-actions">
-                <button type="button" class="adm-btn" :aria-pressed="i.paper.state === 'saved'" @click="toggleSave(i)">
-                  {{ i.paper.state === 'saved' ? 'Saved' : 'Save' }}
-                </button>
-                <button type="button" class="adm-btn adm-reading-dismiss" @click="dismiss(newest, i)">Dismiss</button>
-              </span>
-            </li>
-          </ul>
-          <p v-if="thin(s)" class="adm-muted">{{ thin(s) }}</p>
-        </template>
-      </template>
-
-      <template v-if="earlier.length || more">
-        <h2 class="adm-h2">Earlier days</h2>
-        <details v-for="d in earlier" :key="d.day" class="adm-nav-more">
-          <summary>{{ dayLine(d.day, d.items.length) }}</summary>
-          <ul class="adm-rows">
-            <li v-for="i in d.items" :key="i.paper.id" :data-row="rowKey(d, i)">
-              <span class="adm-row-main">
-                <a :href="`${base}/reading/papers/${i.paper.id}`">{{ visible(i.paper.title) }}</a>
-                <span class="adm-row-detail"
-                  >{{ meta(i) }} · <a :href="i.paper.url" target="_blank" rel="noopener noreferrer">Source</a></span
-                >
-                <span class="adm-row-detail">{{ visible(i.line) }}</span>
-              </span>
-              <span class="adm-row-action adm-reading-actions">
-                <button type="button" class="adm-btn" :aria-pressed="i.paper.state === 'saved'" @click="toggleSave(i)">
-                  {{ i.paper.state === 'saved' ? 'Saved' : 'Save' }}
-                </button>
-                <button type="button" class="adm-btn adm-reading-dismiss" @click="dismiss(d, i)">Dismiss</button>
+      <div v-else class="rd-run-strip">
+        <span
+          :class="['stat-icon', run.status === 'failed' ? 'tint-danger' : running ? 'tint-info' : 'tint-primary']"
+          aria-hidden="true"
+          ><i :class="['pi', run.status === 'failed' ? 'pi-exclamation-triangle' : 'pi-history']"
+        /></span>
+        <div class="rd-run-text">
+          <p role="status">
+            <template v-if="run.status === 'failed'">The last run failed. </template>
+            <template v-if="run.lastRun">
+              {{ run.status === 'failed' ? 'Last finished run' : 'Last run' }} {{ relativeTime(run.lastRun.at) }} ·
+              {{ readingRunLine(run.lastRun) }}
+            </template>
+            <template v-else-if="run.status !== 'failed'">No run yet. The digest runs every night.</template>
+          </p>
+        </div>
+        <Button
+          icon="pi pi-play"
+          :label="running ? 'Running…' : 'Run now'"
+          :loading="running"
+          :disabled="running"
+          @click="runNow"
+        />
+      </div>
+      <template v-if="run.lastRun">
+        <div v-if="readingRunNotes(run.lastRun).length" class="rd-run-notes" role="status">
+          <p v-for="note in readingRunNotes(run.lastRun)" :key="note">
+            <i class="pi pi-exclamation-circle" aria-hidden="true" /> {{ note }}
+          </p>
+        </div>
+        <details v-if="run.lastRun.sources.length" class="rd-sources" :open="run.lastRun.sources.some((s) => s.error)">
+          <summary>
+            <i class="pi pi-angle-right" aria-hidden="true" /> By source ({{ run.lastRun.sources.length }})
+          </summary>
+          <ul>
+            <li v-for="s in run.lastRun.sources" :key="s.id">
+              <span :class="['chip', `chip-${s.error ? 'danger' : 'secondary'}`]">{{
+                SOURCE_NAMES[s.id] ?? s.id
+              }}</span>
+              <span class="rd-sources-main">
+                found {{ s.found }} · added {{ s.added }}
+                <span v-if="s.skipped" class="rd-sources-detail">Skipped: {{ visible(s.skipped) }}</span>
+                <span v-if="s.error" class="rd-sources-detail is-error">{{ visible(s.error) }}</span>
               </span>
             </li>
           </ul>
         </details>
-        <div v-if="more" class="adm-actions">
-          <button type="button" class="adm-btn" :disabled="loadingMore" @click="showEarlier">
-            {{ loadingMore ? 'Loading…' : 'Show earlier' }}
-          </button>
-        </div>
       </template>
-    </template>
+    </section>
+
+    <div v-if="loading" class="rd-digest">
+      <p class="adm-visually-hidden">Loading…</p>
+      <div class="card"><Skeleton v-for="n in 4" :key="n" height="3.5rem" class="mb-3" /></div>
+    </div>
+    <section v-else-if="!newest" class="card empty-state rd-empty">
+      <i class="pi pi-inbox" aria-hidden="true" />
+      <p>
+        No digest yet. Choose your field and sources in <a :href="`${base}/reading/settings`">Settings</a>; the digest
+        arrives every morning.
+      </p>
+    </section>
+    <div v-else class="rd-digest" :class="{ 'has-side': earlier.length || more }">
+      <div class="rd-sections">
+        <template v-for="[s, head] in SECTIONS" :key="s">
+          <section
+            v-if="inSection(newest, s).length || thin(s)"
+            class="card card-flush rd-section"
+            :aria-labelledby="`rd-head-${s}`"
+          >
+            <div class="card-head">
+              <div class="rd-head">
+                <span :class="['rd-head-icon', `tint-${SECTION_LOOK[s].tint}`]" aria-hidden="true"
+                  ><i :class="['pi', SECTION_LOOK[s].icon]"
+                /></span>
+                <h2 :id="`rd-head-${s}`" class="card-title">{{ head }}</h2>
+              </div>
+              <span v-if="inSection(newest, s).length" class="chip chip-secondary">{{
+                inSection(newest, s).length
+              }}</span>
+            </div>
+            <ul v-if="inSection(newest, s).length" class="rd-rows">
+              <DigestRow
+                v-for="i in inSection(newest, s)"
+                :key="i.paper.id"
+                :item="i"
+                :row-key="rowKey(newest, i)"
+                :rank="s === 'unranked' ? undefined : i.rank"
+                :href="`${base}/reading/papers/${i.paper.id}`"
+                @save="toggleSave(i)"
+                @dismiss="dismiss(newest, i)"
+              />
+            </ul>
+            <p v-if="thin(s)" class="rd-thin"><i class="pi pi-info-circle" aria-hidden="true" /> {{ thin(s) }}</p>
+          </section>
+        </template>
+      </div>
+
+      <section v-if="earlier.length || more" class="card card-flush rd-earlier" aria-labelledby="rd-head-earlier">
+        <div class="card-head">
+          <div class="rd-head">
+            <span class="rd-head-icon tint-info" aria-hidden="true"><i class="pi pi-calendar" /></span>
+            <h2 id="rd-head-earlier" class="card-title">Earlier days</h2>
+          </div>
+        </div>
+        <div class="rd-timeline">
+          <details v-for="d in earlier" :key="d.day" class="rd-day">
+            <summary>
+              <span class="rd-day-dot" aria-hidden="true" />
+              <span class="rd-day-label">{{ dayLine(d.day, d.items.length) }}</span>
+              <i class="pi pi-angle-down rd-day-toggle" aria-hidden="true" />
+            </summary>
+            <ul class="rd-rows">
+              <DigestRow
+                v-for="i in d.items"
+                :key="i.paper.id"
+                :item="i"
+                :row-key="rowKey(d, i)"
+                :href="`${base}/reading/papers/${i.paper.id}`"
+                @save="toggleSave(i)"
+                @dismiss="dismiss(d, i)"
+              />
+            </ul>
+          </details>
+        </div>
+        <div v-if="more" class="rd-more">
+          <Button
+            :label="loadingMore ? 'Loading…' : 'Show earlier'"
+            icon="pi pi-history"
+            severity="secondary"
+            outlined
+            size="small"
+            :disabled="loadingMore"
+            @click="showEarlier"
+          />
+        </div>
+      </section>
+    </div>
   </AdminShell>
 </template>
+
+<style scoped>
+.rd-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+@media (max-width: 767.98px) {
+  .rd-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+  .rd-stats > :deep(.stat-card) {
+    padding: 1rem;
+  }
+}
+.rd-run {
+  margin-block-end: 1rem;
+  padding-block: 1rem;
+}
+.rd-run.is-attention {
+  box-shadow:
+    inset 4px 0 0 var(--c-danger),
+    var(--app-shadow-card);
+}
+.rd-run-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+}
+.rd-run-strip .stat-icon {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: 0;
+  font-size: 1.05rem;
+}
+.rd-run-skel {
+  flex: 1;
+  max-width: 28rem;
+}
+.rd-run-text {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+.rd-run-text p {
+  margin: 0;
+  color: var(--app-heading);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.rd-run-notes {
+  display: grid;
+  gap: 0.25rem;
+  margin-block-start: 0.875rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--c-danger) 7%, transparent);
+}
+.rd-run-notes p {
+  margin: 0;
+  color: var(--c-danger);
+  font-size: 0.875rem;
+}
+.rd-sources {
+  margin-block-start: 0.875rem;
+  padding-block-start: 0.75rem;
+  border-top: 1px dashed var(--app-border);
+}
+.rd-sources summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+.rd-sources summary::-webkit-details-marker {
+  display: none;
+}
+.rd-sources summary .pi {
+  font-size: 0.75rem;
+  transition: transform 0.15s;
+}
+.rd-sources[open] summary .pi {
+  transform: rotate(90deg);
+}
+.rd-sources summary:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+.rd-sources ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.rd-sources li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+}
+.rd-sources-main {
+  color: var(--app-body);
+  font-variant-numeric: tabular-nums;
+}
+.rd-sources-detail {
+  display: block;
+  color: var(--app-muted);
+}
+.rd-sources-detail.is-error {
+  color: var(--c-danger);
+}
+
+.rd-digest {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 1200px) {
+  .rd-digest.has-side {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+  }
+}
+.rd-sections {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+.rd-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rd-head-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+.rd-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  container-type: inline-size;
+}
+.rd-thin {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.875rem 1.5rem;
+  border-top: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-canvas) 60%, transparent);
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.rd-thin .pi {
+  margin-block-start: 0.2rem;
+  font-size: 0.8125rem;
+}
+.rd-empty p {
+  max-width: 34rem;
+  margin: 0;
+}
+
+/* Earlier days: a timeline of collapsible days (Conca's timeline card). */
+.rd-timeline {
+  padding: 0.75rem 0;
+}
+.rd-day > summary {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.375rem 1.5rem;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.rd-day > summary::-webkit-details-marker {
+  display: none;
+}
+.rd-day > summary:hover {
+  background: var(--app-menu-hover);
+}
+.rd-day > summary:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: -2px;
+}
+.rd-day > summary::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: calc(1.5rem + 0.3125rem);
+  border-inline-start: 1px dashed var(--app-border);
+}
+.rd-day:first-child > summary::before {
+  inset-block-start: 50%;
+}
+.rd-day:last-child:not([open]) > summary::before {
+  inset-block-end: 50%;
+}
+.rd-day-dot {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  width: 0.75rem;
+  height: 0.75rem;
+  border: 2px solid var(--app-card);
+  border-radius: 50%;
+  background: var(--c-primary);
+  box-shadow: 0 0 0 1px var(--c-primary);
+}
+.rd-day:nth-child(3n + 2) .rd-day-dot {
+  background: var(--c-warning);
+  box-shadow: 0 0 0 1px var(--c-warning);
+}
+.rd-day:nth-child(3n + 3) .rd-day-dot {
+  background: var(--c-success);
+  box-shadow: 0 0 0 1px var(--c-success);
+}
+.rd-day-label {
+  flex: 1;
+}
+.rd-day-toggle {
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  transition: transform 0.15s;
+}
+.rd-day[open] .rd-day-toggle {
+  transform: rotate(180deg);
+}
+.rd-day[open] > .rd-rows {
+  margin: 0.25rem 1rem 0.75rem calc(1.5rem + 0.75rem);
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+}
+.rd-more {
+  display: flex;
+  justify-content: center;
+  padding: 0 1.5rem 1.25rem;
+}
+</style>

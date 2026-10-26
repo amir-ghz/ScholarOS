@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import Button from 'primevue/button';
+import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';
+import ProgressBar from 'primevue/progressbar';
+import Skeleton from 'primevue/skeleton';
+import Textarea from 'primevue/textarea';
 import AdminShell from './AdminShell.vue';
+import { sourceTint } from './ui/reading/sources';
 import ReadingDraftButton from './ReadingDraftButton.vue';
 import ReadingVisibility from './ReadingVisibility.vue';
 import { ApiError, api, report, toast } from './api';
@@ -163,7 +170,7 @@ function onTabKey(e: KeyboardEvent) {
 const TabList = () =>
   h(
     'div',
-    { class: 'adm-filter adm-room-tabs', role: 'tablist', 'aria-label': 'Reading room', onKeydown: onTabKey },
+    { class: 'rd-tabs', role: 'tablist', 'aria-label': 'Reading room', onKeydown: onTabKey },
     tabs.value.map(([id, name]) =>
       h(
         'button',
@@ -552,22 +559,67 @@ onBeforeUnmount(() => {
     :active="isNb ? 'reading/notebooks' : 'reading'"
     :title="room ? visible(room.title) : isNb ? 'Notebook' : 'Paper'"
   >
-    <p v-if="loadError" class="adm-err" role="alert">{{ loadError }}</p>
-    <p v-else-if="!room" class="adm-muted">Loading…</p>
+    <p v-if="loadError" class="card rd-load-error" role="alert">
+      <i class="pi pi-exclamation-circle" aria-hidden="true" /> {{ loadError }}
+    </p>
+    <div v-else-if="!room" class="card">
+      <p class="adm-visually-hidden">Loading…</p>
+      <Skeleton height="1.25rem" width="40%" class="mb-3" />
+      <Skeleton height="2.5rem" width="70%" />
+    </div>
     <template v-else>
-      <div class="adm-room-head">
+      <section class="card rd-head">
         <template v-if="!isNb && cur">
-          <p class="adm-muted">{{ meta(cur) }}</p>
-          <div class="adm-actions">
-            <a :href="cur.url" class="adm-btn" target="_blank" rel="noopener noreferrer">Source</a>
-            <button type="button" class="adm-btn" :aria-pressed="cur.state === 'saved'" @click="toggleSave">
-              {{ cur.state === 'saved' ? 'Saved' : 'Save' }}
-            </button>
-            <select aria-label="Add to notebook" class="adm-room-add" @change="addToNotebook">
-              <option value="">Add to notebook…</option>
-              <option v-for="n in addable" :key="n.id" :value="n.id">{{ n.title }}</option>
-              <option value="new">New notebook…</option>
-            </select>
+          <div class="rd-head-top">
+            <span :class="['rd-head-icon', `tint-${sourceTint(cur.source)}`]" aria-hidden="true"
+              ><i class="pi pi-file"
+            /></span>
+            <div class="rd-head-text">
+              <p class="rd-meta">
+                <span :class="['chip', `chip-${sourceTint(cur.source)}`]">{{
+                  SOURCE_NAMES[cur.source] ?? cur.source
+                }}</span>
+                <span v-if="cur.authors.length" dir="auto">{{ authorsLine(cur.authors) }}</span>
+                <template v-if="cur.publishedAt">
+                  <span aria-hidden="true">·</span
+                  ><time :datetime="cur.publishedAt">{{ formatDate(cur.publishedAt) }}</time>
+                </template>
+              </p>
+              <p v-if="room.inNotebooks.length" class="rd-in">
+                <i class="pi pi-book" aria-hidden="true" /> In
+                <span v-for="(n, i) in room.inNotebooks" :key="n.id"
+                  >{{ i ? ', ' : '' }}<a :href="`${base}/reading/notebooks/${n.id}`">{{ visible(n.title) }}</a></span
+                >
+              </p>
+            </div>
+          </div>
+          <div class="rd-head-actions">
+            <Button
+              as="a"
+              :href="cur.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              label="Source"
+              icon="pi pi-external-link"
+              severity="secondary"
+              outlined
+            />
+            <Button
+              :icon="cur.state === 'saved' ? 'pi pi-bookmark-fill' : 'pi pi-bookmark'"
+              :label="cur.state === 'saved' ? 'Saved' : 'Save'"
+              :severity="cur.state === 'saved' ? undefined : 'secondary'"
+              :outlined="cur.state !== 'saved'"
+              :aria-pressed="cur.state === 'saved'"
+              @click="toggleSave"
+            />
+            <span class="rd-select-wrap">
+              <select aria-label="Add to notebook" class="rd-select" @change="addToNotebook">
+                <option value="">Add to notebook…</option>
+                <option v-for="n in addable" :key="n.id" :value="n.id">{{ n.title }}</option>
+                <option value="new">New notebook…</option>
+              </select>
+              <i class="pi pi-chevron-down" aria-hidden="true" />
+            </span>
             <ReadingDraftButton
               :ctx="ctx"
               :from="{ paper: cur.id }"
@@ -575,62 +627,62 @@ onBeforeUnmount(() => {
               hint="Writes an unpublished draft in your voice from this paper, your notes and saved answers, and opens it in the blog editor. One reading-room AI call."
             />
           </div>
-          <p v-if="room.inNotebooks.length" class="adm-muted">
-            In
-            <span v-for="(n, i) in room.inNotebooks" :key="n.id"
-              >{{ i ? ', ' : '' }}<a :href="`${base}/reading/notebooks/${n.id}`">{{ visible(n.title) }}</a></span
-            >
-          </p>
-          <ReadingVisibility
-            v-model:visibility="room.visibility"
-            v-model:warning="publishWarning"
-            :ctx="ctx"
-            kind="paper"
-            :shared="shared"
-            :send="setPublic"
-          />
+          <div class="rd-head-vis">
+            <ReadingVisibility
+              v-model:visibility="room.visibility"
+              v-model:warning="publishWarning"
+              :ctx="ctx"
+              kind="paper"
+              :shared="shared"
+              :send="setPublic"
+            />
+          </div>
         </template>
         <template v-else-if="isNb">
-          <ReadingVisibility
-            v-model:visibility="room.visibility"
-            v-model:warning="publishWarning"
-            :ctx="ctx"
-            kind="free"
-            :send="setNotebookPublic"
-          />
-          <label class="adm-field adm-room-title">
-            <span>Title</span>
-            <input type="text" :value="room.title" maxlength="200" @change="rename" />
-          </label>
-          <ul v-if="room.papers.length" class="adm-rows">
+          <div class="rd-head-vis rd-head-vis-first">
+            <ReadingVisibility
+              v-model:visibility="room.visibility"
+              v-model:warning="publishWarning"
+              :ctx="ctx"
+              kind="free"
+              :send="setNotebookPublic"
+            />
+          </div>
+          <div class="rd-field rd-nb-title">
+            <label for="room-nb-title">Title</label>
+            <InputText id="room-nb-title" :model-value="room.title" maxlength="200" @change="rename" />
+          </div>
+          <ul v-if="room.papers.length" class="rd-nb-papers">
             <li v-for="p in room.papers" :key="p.id">
-              <span class="adm-row-main">
-                <a :href="`${base}/reading/papers/${p.id}`">{{ visible(p.title) }}</a>
-                <span class="adm-row-detail">{{ meta(p) }}</span>
+              <span :class="['rd-nb-thumb', `tint-${sourceTint(p.source)}`]" aria-hidden="true"
+                ><i class="pi pi-file"
+              /></span>
+              <span class="rd-nb-paper">
+                <a :href="`${base}/reading/papers/${p.id}`" dir="auto">{{ visible(p.title) }}</a>
+                <span class="rd-nb-sub">{{ meta(p) }}</span>
               </span>
-              <span class="adm-row-action">
-                <button
-                  type="button"
-                  class="adm-btn"
-                  :aria-label="`Remove ${visible(p.title)}`"
-                  @click="patchNotebook({ remove: p.id })"
-                >
-                  Remove
-                </button>
-              </span>
+              <Button
+                size="small"
+                severity="secondary"
+                text
+                icon="pi pi-times"
+                label="Remove"
+                :aria-label="`Remove ${visible(p.title)}`"
+                @click="patchNotebook({ remove: p.id })"
+              />
             </li>
           </ul>
-          <form class="adm-actions" @submit.prevent="addPaper">
+          <form class="rd-nb-add" @submit.prevent="addPaper">
             <label class="adm-visually-hidden" for="room-add-ref">arXiv id or DOI</label>
-            <input
-              id="room-add-ref"
-              v-model="newRef"
-              type="text"
-              class="adm-room-ref"
-              placeholder="arXiv id or DOI"
-              maxlength="300"
+            <InputText id="room-add-ref" v-model="newRef" type="text" placeholder="arXiv id or DOI" maxlength="300" />
+            <Button
+              type="submit"
+              icon="pi pi-plus"
+              severity="secondary"
+              outlined
+              :label="adding ? 'Adding…' : 'Add a paper'"
+              :disabled="adding"
             />
-            <button type="submit" class="adm-btn" :disabled="adding">{{ adding ? 'Adding…' : 'Add a paper' }}</button>
           </form>
           <ReadingDraftButton
             :ctx="ctx"
@@ -639,14 +691,14 @@ onBeforeUnmount(() => {
             hint="Writes an unpublished draft in your voice from this notebook’s papers (a roundup when it has several), its note and your saved answers, and opens it in the blog editor. One reading-room AI call."
           />
         </template>
-      </div>
+      </section>
 
-      <div class="adm-room">
+      <div class="rd-room">
         <TabList v-if="!wide" />
         <section
           v-if="wide || tab === 'paper'"
           ref="pane"
-          class="adm-room-paper"
+          class="card rd-paper"
           v-bind="
             wide
               ? { 'aria-label': 'Paper' }
@@ -658,21 +710,32 @@ onBeforeUnmount(() => {
           @keydown.esc="tool = null"
         >
           <h2 class="adm-visually-hidden">Paper</h2>
-          <p v-if="!room.papers.length" class="adm-muted">Add a paper to this notebook to read it here.</p>
+          <div v-if="!room.papers.length" class="empty-state">
+            <i class="pi pi-file" aria-hidden="true" />
+            <p>Add a paper to this notebook to read it here.</p>
+          </div>
           <template v-if="cur && text">
-            <label v-if="isNb" class="adm-field">
-              <span>Paper</span>
-              <select v-model="shown">
-                <option v-for="p in room.papers" :key="p.id" :value="p.id">{{ visible(p.title) }}</option>
-              </select>
-            </label>
-            <div v-if="label || canUpload" class="adm-room-label">
-              <p v-if="label" class="adm-muted">{{ label }}</p>
-              <label v-if="canUpload" class="adm-btn adm-room-upload">
-                {{ uploading ? 'Uploading…' : 'Upload the PDF' }}
+            <div v-if="isNb" class="rd-field">
+              <label for="room-paper-pick">Paper</label>
+              <span class="rd-select-wrap rd-select-full">
+                <select id="room-paper-pick" v-model="shown" class="rd-select">
+                  <option v-for="p in room.papers" :key="p.id" :value="p.id">{{ visible(p.title) }}</option>
+                </select>
+                <i class="pi pi-chevron-down" aria-hidden="true" />
+              </span>
+            </div>
+            <div v-if="label || canUpload" class="rd-text-label">
+              <i class="pi pi-info-circle" aria-hidden="true" />
+              <p v-if="label">{{ label }}</p>
+              <label
+                v-if="canUpload"
+                class="p-button p-component p-button-secondary p-button-outlined p-button-sm rd-upload"
+              >
+                <i class="pi pi-upload p-button-icon p-button-icon-left" aria-hidden="true" />
+                <span class="p-button-label">{{ uploading ? 'Uploading…' : 'Upload the PDF' }}</span>
                 <input type="file" accept="application/pdf" :disabled="uploading" @change="upload" />
               </label>
-              <p v-if="uploadError" class="adm-err" role="alert">{{ uploadError }}</p>
+              <p v-if="uploadError" class="rd-error" role="alert">{{ uploadError }}</p>
             </div>
             <PaperText
               v-if="room.passages[cur.id].length"
@@ -693,43 +756,59 @@ onBeforeUnmount(() => {
             <template v-else-if="tool.kind === 'new'">
               <template v-if="tool.commenting">
                 <label class="adm-visually-hidden" for="room-hl-comment">Comment</label>
-                <textarea id="room-hl-comment" v-model="tool.comment" rows="3" maxlength="2000" />
-                <button type="button" class="adm-btn adm-btn-primary" @click="saveHighlight">Save</button>
+                <Textarea id="room-hl-comment" v-model="tool.comment" rows="3" maxlength="2000" />
+                <Button size="small" label="Save" @click="saveHighlight" />
               </template>
               <template v-else>
-                <button type="button" class="adm-btn" @click="saveHighlight">Highlight</button>
-                <button type="button" class="adm-btn" @click="((tool.commenting = true), focusTool())">Comment</button>
+                <Button size="small" icon="pi pi-pencil" label="Highlight" @click="saveHighlight" />
+                <Button
+                  size="small"
+                  severity="secondary"
+                  outlined
+                  icon="pi pi-comment"
+                  label="Comment"
+                  @click="((tool.commenting = true), focusTool())"
+                />
               </template>
             </template>
             <template v-else>
               <label class="adm-visually-hidden" for="room-hl-comment">Comment</label>
-              <textarea id="room-hl-comment" v-model="tool.comment" rows="3" maxlength="2000" placeholder="Comment" />
-              <button type="button" class="adm-btn" @click="saveComment">Save</button>
-              <button type="button" class="adm-btn" @click="deleteHighlight">Delete</button>
+              <Textarea id="room-hl-comment" v-model="tool.comment" rows="3" maxlength="2000" placeholder="Comment" />
+              <Button size="small" label="Save" @click="saveComment" />
+              <Button size="small" severity="danger" text icon="pi pi-trash" label="Delete" @click="deleteHighlight" />
             </template>
           </div>
         </section>
 
-        <div v-if="wide || tab !== 'paper'" class="adm-room-side">
+        <div v-if="wide || tab !== 'paper'" class="card card-flush rd-side">
           <TabList v-if="wide" />
-          <div :id="`room-panel-${tab}`" role="tabpanel" :aria-labelledby="`room-tab-${tab}`" class="adm-room-panel">
+          <div :id="`room-panel-${tab}`" role="tabpanel" :aria-labelledby="`room-tab-${tab}`" class="rd-panel">
             <template v-if="tab === 'summary'">
               <template v-for="k in ['summary', ...AIDS.map(([a]) => a)] as OutputKind[]" :key="k">
                 <template v-if="k === 'summary' || room.outputs[k]">
-                  <h2 :class="k === 'summary' ? 'adm-visually-hidden' : 'adm-h2'">
+                  <h2 :class="k === 'summary' ? 'adm-visually-hidden' : 'rd-panel-title'">
                     {{ k === 'summary' ? 'Summary' : AIDS.find(([a]) => a === k)![1] }}
                   </h2>
                   <div role="status">
-                    <div v-if="room.outputs[k]?.status === 'running'" class="adm-verdict adm-run">
+                    <div v-if="room.outputs[k]?.status === 'running'" class="rd-progress">
                       <p>{{ progressLine(room.outputs[k], textReady, isNb) }}</p>
+                      <ProgressBar mode="indeterminate" class="rd-progress-bar" />
                     </div>
                   </div>
-                  <div v-if="room.outputs[k]?.status === 'failed'" class="adm-verdict adm-run is-attention">
+                  <div v-if="room.outputs[k]?.status === 'failed'" class="rd-failed">
+                    <i class="pi pi-exclamation-triangle" aria-hidden="true" />
                     <p>{{ visible(room.outputs[k]!.error ?? '') }}</p>
-                    <button type="button" class="adm-btn" @click="generate(k)">Try again</button>
+                    <Button
+                      size="small"
+                      severity="secondary"
+                      outlined
+                      icon="pi pi-refresh"
+                      label="Try again"
+                      @click="generate(k)"
+                    />
                   </div>
                   <template v-if="room.outputs[k]?.status === 'ready' && room.outputs[k]!.body">
-                    <p v-if="outdated(room.outputs[k]!)" class="adm-muted">Papers changed since this was written.</p>
+                    <p v-if="outdated(room.outputs[k]!)" class="rd-muted">Papers changed since this was written.</p>
                     <ClaimList
                       :sections="room.outputs[k]!.body!.sections"
                       :papers="citeNames"
@@ -737,32 +816,38 @@ onBeforeUnmount(() => {
                       :scans="scans"
                       @cite="jump"
                     />
-                    <div class="adm-actions">
-                      <button type="button" class="adm-btn" @click="generate(k)">Regenerate</button>
+                    <div class="rd-panel-actions">
+                      <Button
+                        size="small"
+                        severity="secondary"
+                        text
+                        icon="pi pi-refresh"
+                        label="Regenerate"
+                        @click="generate(k)"
+                      />
                     </div>
                   </template>
                   <template v-if="k === 'summary' && !room.outputs.summary">
-                    <div v-if="room.papers.length" class="adm-actions">
-                      <button type="button" class="adm-btn adm-btn-primary" @click="generate('summary')">
-                        Write the summary
-                      </button>
+                    <div v-if="room.papers.length" class="rd-panel-actions">
+                      <Button icon="pi pi-sparkles" label="Write the summary" @click="generate('summary')" />
                     </div>
-                    <p v-else class="adm-muted">Add a paper to this notebook to write its summary.</p>
+                    <p v-else class="rd-muted">Add a paper to this notebook to write its summary.</p>
                   </template>
                 </template>
                 <template v-if="k === 'summary'">
-                  <h2 class="adm-h2">Study aids</h2>
-                  <div class="adm-actions">
+                  <h2 class="rd-panel-title">Study aids</h2>
+                  <div class="rd-panel-actions">
                     <template v-for="[a, name] in AIDS" :key="a">
-                      <button
+                      <Button
                         v-if="!room.outputs[a]"
-                        type="button"
-                        class="adm-btn"
+                        size="small"
+                        severity="secondary"
+                        outlined
+                        :icon="a === 'faq' ? 'pi pi-question-circle' : a === 'glossary' ? 'pi pi-book' : 'pi pi-file'"
+                        :label="name"
                         :disabled="!room.papers.length"
                         @click="generate(a)"
-                      >
-                        {{ name }}
-                      </button>
+                      />
                     </template>
                   </div>
                 </template>
@@ -771,88 +856,114 @@ onBeforeUnmount(() => {
 
             <template v-else-if="tab === 'chat'">
               <h2 class="adm-visually-hidden">Chat</h2>
-              <ol class="adm-room-chat">
+              <ol class="rd-chat">
                 <li v-for="m in messages" :key="m.id" :class="m.role === 'user' ? 'is-question' : 'is-answer'">
                   <p v-if="m.role === 'user'">{{ m.body }}</p>
                   <template v-else>
-                    <AnswerText :body="m.body" :papers="citeNames" :known="known" :scans="scans" @cite="jump" />
-                    <button type="button" class="adm-btn" :aria-pressed="m.saved" @click="toggleSaved(m)">
-                      Save to notes
-                    </button>
+                    <div class="rd-bubble">
+                      <AnswerText :body="m.body" :papers="citeNames" :known="known" :scans="scans" @cite="jump" />
+                    </div>
+                    <Button
+                      size="small"
+                      text
+                      :severity="m.saved ? undefined : 'secondary'"
+                      :icon="m.saved ? 'pi pi-bookmark-fill' : 'pi pi-bookmark'"
+                      label="Save to notes"
+                      :aria-pressed="m.saved"
+                      @click="toggleSaved(m)"
+                    />
                   </template>
                 </li>
               </ol>
-              <p v-if="asking" class="adm-muted" role="status">Thinking…</p>
-              <p v-if="chatError" class="adm-err" role="alert">{{ chatError }}</p>
-              <form class="adm-room-ask" @submit.prevent="ask">
+              <div v-if="!messages.length && !asking" class="rd-chat-empty" aria-hidden="true">
+                <i class="pi pi-comments" />
+              </div>
+              <p v-if="asking" class="rd-thinking" role="status">
+                <i class="pi pi-spin pi-spinner" aria-hidden="true" /> Thinking…
+              </p>
+              <p v-if="chatError" class="rd-error" role="alert">{{ chatError }}</p>
+              <form class="rd-ask" @submit.prevent="ask">
                 <label class="adm-visually-hidden" for="room-question">Question</label>
-                <textarea
+                <Textarea
                   id="room-question"
                   v-model="question"
-                  rows="3"
+                  rows="2"
                   maxlength="2000"
                   :disabled="asking"
                   placeholder="Ask about this paper"
                   @keydown="onAskKey"
                 />
-                <button type="submit" class="adm-btn adm-btn-primary" :disabled="asking">Ask</button>
+                <Button type="submit" icon="pi pi-send" label="Ask" :disabled="asking" />
               </form>
-              <p class="adm-muted">{{ room.use.today }} of {{ room.use.cap }} AI calls used today</p>
+              <p class="rd-muted rd-use">{{ room.use.today }} of {{ room.use.cap }} AI calls used today</p>
             </template>
 
             <template v-else-if="tab === 'notes'">
               <h2 class="adm-visually-hidden">Notes</h2>
-              <label class="adm-field">
-                <span>Note</span>
-                <textarea v-model="note" rows="8" maxlength="20000" @input="onNoteInput" @blur="saveNote" />
-              </label>
-              <p class="adm-muted" role="status">{{ noteStatus }}</p>
+              <div class="rd-field">
+                <label for="room-note">Note</label>
+                <Textarea
+                  id="room-note"
+                  v-model="note"
+                  rows="8"
+                  maxlength="20000"
+                  @input="onNoteInput"
+                  @blur="saveNote"
+                />
+              </div>
+              <p class="rd-muted rd-saved" role="status">
+                <template v-if="noteStatus"><i class="pi pi-check" aria-hidden="true" /> {{ noteStatus }}</template>
+              </p>
               <template v-if="room.highlights.length">
-                <h3 class="adm-subhead">Highlights</h3>
-                <p id="room-hl-public-hint" class="adm-muted">Shown publicly up to 300 characters.</p>
-                <ul class="adm-rows">
+                <h3 class="rd-panel-title">Highlights</h3>
+                <p id="room-hl-public-hint" class="rd-muted">Shown publicly up to 300 characters.</p>
+                <ul class="rd-hls">
                   <li v-for="hl in room.highlights" :key="hl.id">
-                    <span class="adm-row-main">
-                      <button type="button" class="adm-room-quote" @click="showHighlight(hl)">
+                    <span class="rd-hl-main">
+                      <button type="button" class="rd-quote" @click="showHighlight(hl)">
                         “{{ visible(hl.quote) }}”
                       </button>
-                      <span v-if="hl.comment" class="adm-row-detail">{{ hl.comment }}</span>
-                      <span v-if="isNb" class="adm-row-detail">{{ paperTitle(hl.paperId) }}</span>
-                      <span v-if="hlError?.id === hl.id" class="adm-row-detail adm-err" role="alert">{{
+                      <span v-if="hl.comment" class="rd-hl-detail">{{ hl.comment }}</span>
+                      <span v-if="isNb" class="rd-hl-detail">{{ paperTitle(hl.paperId) }}</span>
+                      <span v-if="hlError?.id === hl.id" class="rd-hl-detail rd-error" role="alert">{{
                         hlError.text
                       }}</span>
                     </span>
-                    <label class="adm-row-action adm-check">
-                      <input
-                        type="checkbox"
-                        :checked="hl.public"
+                    <span class="rd-hl-public">
+                      <Checkbox
+                        :model-value="hl.public"
+                        binary
+                        :input-id="`room-hl-public-${hl.id}`"
                         :aria-label="publicLabel(hl)"
-                        aria-describedby="room-hl-public-hint"
-                        @change="setHighlightPublic(hl, ($event.target as HTMLInputElement).checked)"
+                        :pt="{ input: { 'aria-describedby': 'room-hl-public-hint' } }"
+                        @update:model-value="(on: boolean) => setHighlightPublic(hl, on)"
                       />
-                      Public
-                    </label>
+                      <label :for="`room-hl-public-${hl.id}`">Public</label>
+                    </span>
                   </li>
                 </ul>
               </template>
               <template v-if="messages.some((m) => m.saved)">
-                <h3 class="adm-subhead">Saved answers</h3>
-                <AnswerText
-                  v-for="m in messages.filter((x) => x.saved)"
-                  :key="m.id"
-                  :body="m.body"
-                  :papers="citeNames"
-                  :known="known"
-                  :scans="scans"
-                  @cite="jump"
-                />
+                <h3 class="rd-panel-title">Saved answers</h3>
+                <div class="rd-saved-answers">
+                  <AnswerText
+                    v-for="m in messages.filter((x) => x.saved)"
+                    :key="m.id"
+                    :body="m.body"
+                    :papers="citeNames"
+                    :known="known"
+                    :scans="scans"
+                    @cite="jump"
+                  />
+                </div>
               </template>
-              <p v-if="room.vaultNote">
+              <p v-if="room.vaultNote" class="rd-vault-link">
+                <i class="pi pi-database" aria-hidden="true" />
                 <a :href="`${base}/reading/vault/${room.vaultNote}`">{{
                   isNb ? 'Open this notebook’s note in the vault' : 'Open this paper’s note in the vault'
                 }}</a>
               </p>
-              <p v-else class="adm-muted">
+              <p v-else class="rd-muted">
                 {{
                   isNb
                     ? 'Writing a note here adds it to the vault.'
@@ -866,3 +977,725 @@ onBeforeUnmount(() => {
     </template>
   </AdminShell>
 </template>
+
+<style scoped>
+.rd-load-error {
+  color: var(--c-danger);
+}
+.rd-muted {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.rd-error {
+  margin: 0;
+  color: var(--c-danger);
+  font-size: 0.8125rem;
+}
+.rd-field {
+  display: grid;
+  gap: 0.375rem;
+}
+.rd-field > label {
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* Header card: the paper's source, authors, actions and visibility (or the notebook's title and papers). */
+.rd-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-block-end: 1rem;
+}
+.rd-head-top {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.rd-head-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.625rem;
+  font-size: 1.25rem;
+}
+.rd-head-text {
+  display: grid;
+  gap: 0.25rem;
+  min-width: 0;
+}
+.rd-meta,
+.rd-in {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  margin: 0;
+  color: var(--app-body);
+  font-size: 0.875rem;
+}
+.rd-in {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.rd-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.rd-head-actions :deep(.rd-draft) {
+  display: contents;
+}
+.rd-head-actions :deep(.rd-draft-hint),
+.rd-head-actions :deep(.rd-draft-error) {
+  flex-basis: 100%;
+  max-width: none;
+}
+.rd-head-vis {
+  display: grid;
+  gap: 0.5rem;
+  padding-block-start: 1rem;
+  border-top: 1px dashed var(--app-border);
+}
+.rd-head-vis-first {
+  padding-block: 0 1rem;
+  border-top: 0;
+  border-bottom: 1px dashed var(--app-border);
+}
+.rd-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+.rd-select-wrap > .pi {
+  position: absolute;
+  inset-inline-end: 0.75rem;
+  color: var(--app-muted);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.rd-select {
+  width: auto;
+  max-width: 100%;
+  min-height: 2.5rem;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem;
+  border: 1px solid var(--p-inputtext-border-color, var(--app-border));
+  border-radius: var(--p-inputtext-border-radius, 0.5rem);
+  background: var(--p-inputtext-background, var(--app-card));
+  color: var(--p-inputtext-color, var(--app-heading));
+  font: inherit;
+  font-size: 0.9375rem;
+  appearance: none;
+  cursor: pointer;
+}
+.rd-select:hover {
+  border-color: var(--p-inputtext-hover-border-color, var(--app-muted));
+}
+.rd-select:focus-visible {
+  outline: 0;
+  border-color: var(--p-primary-color);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--p-primary-color) 20%, transparent);
+}
+.rd-head-actions .rd-select {
+  max-width: min(100%, 20rem);
+}
+.rd-select-full,
+.rd-select-full .rd-select {
+  width: 100%;
+}
+.rd-nb-title {
+  max-width: 40rem;
+}
+.rd-nb-papers {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rd-nb-papers > li {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  padding-block: 0.625rem;
+}
+.rd-nb-papers > li + li {
+  border-top: 1px dashed var(--app-border);
+}
+.rd-nb-thumb {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+}
+.rd-nb-paper {
+  flex: 1;
+  display: grid;
+  min-width: 0;
+}
+.rd-nb-paper a {
+  color: var(--app-heading);
+  font-weight: 600;
+  text-decoration: none;
+}
+.rd-nb-paper a:hover {
+  color: var(--p-primary-color);
+}
+.rd-nb-sub {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.rd-nb-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rd-nb-add :deep(.p-inputtext) {
+  flex: 1 1 12rem;
+  max-width: 28rem;
+}
+
+/* The room: the paper (its own scroll) beside Summary · Chat · Notes from 1024px, like Conca's chat app. */
+.rd-room {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.rd-paper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.rd-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+@media (min-width: 1024px) {
+  .rd-room {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 0.72fr);
+    align-items: start;
+  }
+  .rd-paper,
+  .rd-side {
+    position: sticky;
+    inset-block-start: calc(var(--app-header-height) + 1rem);
+    max-block-size: calc(100dvh - var(--app-header-height) - 2rem);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  .rd-paper {
+    padding: 2rem 2.5rem;
+  }
+}
+.rd-text-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--c-info) 8%, transparent);
+  color: var(--app-body);
+  font-size: 0.8125rem;
+}
+.rd-text-label > .pi {
+  color: var(--c-info);
+}
+.rd-text-label > p {
+  flex: 1 1 16rem;
+  margin: 0;
+}
+.rd-text-label > .rd-error {
+  flex-basis: 100%;
+}
+.rd-upload {
+  position: relative;
+}
+.rd-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.rd-upload:focus-within {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 2px;
+}
+
+/* The paper's text: a serif reading column. */
+.rd-paper :deep(.adm-paper-text) {
+  max-inline-size: 68ch;
+  margin: 0;
+  color: var(--app-heading);
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.7;
+  overflow-wrap: break-word;
+}
+.rd-paper :deep(.adm-paper-text p),
+.rd-paper :deep(.adm-paper-text figure) {
+  margin: 0 0 1em;
+}
+.rd-paper :deep(.adm-paper-text :is(h3, h4, h5)) {
+  margin: 1.5em 0 0.5em;
+  color: var(--app-heading);
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.rd-paper :deep(.adm-paper-text h3) {
+  font-size: 1.1875rem;
+}
+.rd-paper :deep(.adm-paper-text > :first-child) {
+  margin-block-start: 0;
+}
+.rd-paper :deep(.adm-paper-text figure) {
+  padding: 0.75rem 1rem;
+  border-inline-start: 3px solid var(--app-border);
+  background: var(--app-canvas);
+  border-radius: 0.375rem;
+}
+.rd-paper :deep(.adm-paper-text figcaption) {
+  color: var(--app-body);
+  font-size: 0.9375rem;
+}
+.rd-paper :deep(.adm-paper-text figure a) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.rd-paper :deep(.adm-paper-text [tabindex='-1']) {
+  border-radius: 0.25rem;
+  transition: background-color 0.6s;
+}
+.rd-paper :deep(.adm-paper-text [tabindex='-1']:focus) {
+  outline: none;
+}
+.rd-paper :deep(.adm-paper-text mark) {
+  background: color-mix(in srgb, var(--c-warning) 28%, transparent);
+  box-shadow: inset 0 -2px color-mix(in srgb, var(--c-warning) 80%, transparent);
+  color: inherit;
+  cursor: pointer;
+}
+/* A cited passage, for 2 s after its citation was followed. */
+.rd-paper :deep(.adm-paper-text .is-flash) {
+  background: color-mix(in srgb, var(--p-primary-color) 14%, transparent);
+  transition: none;
+}
+.rd-paper .adm-room-tool {
+  position: absolute;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.375rem;
+  inline-size: max-content;
+  max-inline-size: min(280px, 100%);
+  padding: 0.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.625rem;
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-float);
+  font-size: 0.875rem;
+}
+.adm-room-tool p {
+  margin: 0.25rem 0.375rem;
+}
+.adm-room-tool :deep(textarea) {
+  flex: 1 0 100%;
+  font-size: 0.875rem;
+}
+
+/* The side card: tabs, then the panel. */
+.rd-side :deep(.rd-tabs) {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+}
+.rd-room :deep(.rd-tabs) {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.375rem;
+  border-radius: var(--app-radius-card);
+  background: var(--app-card);
+  box-shadow: var(--app-shadow-card);
+}
+.rd-side :deep(.rd-tabs) {
+  margin: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--app-border);
+  box-shadow: none;
+  padding: 0.75rem 1rem;
+}
+.rd-room :deep(.rd-tabs > button) {
+  flex: 1;
+  min-height: 2.5rem;
+  padding: 0.375rem 0.875rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--app-body);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.rd-room :deep(.rd-tabs > button:hover) {
+  background: var(--app-menu-hover);
+  color: var(--app-heading);
+}
+.rd-room :deep(.rd-tabs > button[aria-selected='true']) {
+  background: var(--p-primary-color);
+  box-shadow: var(--app-shadow-active);
+  color: #fff;
+}
+.rd-room :deep(.rd-tabs > button:focus-visible) {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 2px;
+}
+.rd-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-inline-size: 0;
+  padding: 1.25rem 1.5rem 1.5rem;
+}
+.rd-panel-title {
+  margin: 0.5rem 0 0;
+  color: var(--app-heading);
+  font-size: 1rem;
+  font-weight: 600;
+}
+.rd-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.rd-progress {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--p-primary-color) 7%, transparent);
+}
+.rd-progress p {
+  margin: 0;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.rd-progress-bar {
+  height: 0.25rem;
+}
+.rd-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem 0.75rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--c-danger) 8%, transparent);
+  color: var(--c-danger);
+}
+.rd-failed > .pi {
+  margin-block-start: 0.2rem;
+}
+.rd-failed p {
+  flex: 1 1 12rem;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* Summaries and answers (RoomText's renderers). */
+.rd-panel :deep(.adm-claims) {
+  display: grid;
+  gap: 1rem;
+}
+.rd-panel :deep(.adm-claims h3) {
+  margin: 0 0 0.5rem;
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.rd-panel :deep(.adm-claims ul) {
+  display: grid;
+  list-style: disc;
+  gap: 0.625rem;
+  margin: 0;
+  padding-inline-start: 1.15em;
+  color: var(--app-body);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+.rd-panel :deep(.adm-claims li::marker) {
+  color: var(--p-primary-color);
+}
+.rd-panel :deep(.adm-muted) {
+  color: var(--app-muted);
+}
+.rd-panel :deep(.adm-answer) {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+.rd-panel :deep(.adm-answer > :first-child) {
+  margin-block-start: 0;
+}
+.rd-panel :deep(.adm-answer > :last-child) {
+  margin-block-end: 0;
+}
+.rd-panel :deep(.adm-answer h4) {
+  margin: 1em 0 0.4em;
+  color: var(--app-heading);
+  font-size: 0.9375rem;
+}
+.rd-panel :deep(.adm-answer :is(ul, ol)) {
+  margin: 0.5em 0;
+  padding-inline-start: 1.25em;
+  list-style: disc;
+}
+.rd-panel :deep(.adm-answer ol) {
+  list-style: decimal;
+}
+.rd-panel :deep(.adm-answer p) {
+  margin: 0.5em 0;
+}
+.rd-panel :deep(.adm-answer code) {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+.rd-panel :deep(.adm-cite) {
+  position: relative;
+  padding: 0 0.3em;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--p-primary-color) 10%, transparent);
+  color: var(--p-primary-color);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rd-panel :deep(button.adm-cite) {
+  min-height: 0;
+  text-decoration: none;
+  cursor: pointer;
+}
+.rd-panel :deep(button.adm-cite:hover) {
+  background: var(--p-primary-color);
+  color: #fff;
+}
+/* The hit area grows to 44px without moving the line. */
+.rd-panel :deep(button.adm-cite::after) {
+  content: '';
+  position: absolute;
+  inset: -13px -4px;
+}
+.rd-panel :deep(button.adm-cite:focus-visible) {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 1px;
+}
+.rd-panel :deep(button.adm-cite:disabled),
+.rd-panel :deep(span.adm-cite) {
+  background: var(--app-canvas);
+  color: var(--app-muted);
+  cursor: default;
+}
+
+/* Chat: questions right in indigo bubbles, answers left (Conca's chat). */
+.rd-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rd-chat > li {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+.rd-chat > li.is-question {
+  align-items: flex-end;
+}
+.rd-chat .is-question p {
+  max-width: 88%;
+  margin: 0;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.75rem 0.75rem 0.25rem 0.75rem;
+  background: var(--p-primary-color);
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  white-space: pre-wrap;
+}
+.rd-bubble {
+  max-width: 100%;
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.75rem 0.75rem 0.75rem 0.25rem;
+  background: var(--app-canvas);
+  color: var(--app-heading);
+}
+.rd-chat-empty {
+  display: grid;
+  place-items: center;
+  padding: 1.5rem 0 0.5rem;
+  color: var(--app-muted);
+  font-size: 2rem;
+  opacity: 0.45;
+}
+.rd-thinking {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.875rem;
+}
+.rd-ask {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.375rem;
+  border: 1px solid var(--app-border);
+  border-radius: 0.875rem;
+  background: var(--app-canvas);
+}
+.rd-ask:focus-within {
+  border-color: var(--p-primary-color);
+}
+.rd-ask :deep(textarea) {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  resize: vertical;
+}
+.rd-ask :deep(textarea:focus) {
+  box-shadow: none;
+}
+.rd-use {
+  text-align: end;
+}
+
+/* Notes. */
+.rd-field :deep(textarea) {
+  width: 100%;
+  line-height: 1.55;
+}
+.rd-saved {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 1.25rem;
+  margin-block-start: -0.5rem;
+  color: var(--c-success);
+}
+.rd-hls {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rd-hls > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding-block: 0.75rem;
+}
+.rd-hls > li + li {
+  border-top: 1px dashed var(--app-border);
+}
+.rd-hl-main {
+  display: grid;
+  flex: 1;
+  gap: 0.25rem;
+  min-width: 0;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid color-mix(in srgb, var(--c-warning) 70%, transparent);
+}
+.rd-quote {
+  min-height: 2.75rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--app-heading);
+  font-family: var(--font-serif);
+  font-size: 0.9375rem;
+  font-style: italic;
+  text-align: start;
+  cursor: pointer;
+}
+.rd-quote:hover {
+  color: var(--p-primary-color);
+}
+.rd-quote:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+  outline-offset: 2px;
+  border-radius: 0.25rem;
+}
+.rd-hl-detail {
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.rd-hl-public {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  font-size: 0.875rem;
+}
+.rd-saved-answers {
+  display: grid;
+  gap: 0.75rem;
+}
+.rd-saved-answers > :deep(.adm-answer) {
+  padding: 0.75rem 0.875rem;
+  border-radius: 0.625rem;
+  background: var(--app-canvas);
+}
+.rd-vault-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--p-primary-color) 7%, transparent);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.rd-vault-link .pi {
+  color: var(--p-primary-color);
+}
+@media (max-width: 767.98px) {
+  .rd-panel {
+    padding: 1rem;
+  }
+  .rd-head-top {
+    align-items: flex-start;
+  }
+  .rd-head-icon {
+    display: none;
+  }
+}
+</style>

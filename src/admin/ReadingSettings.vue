@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
+import Button from 'primevue/button';
+import Checkbox from 'primevue/checkbox';
+import InputText from 'primevue/inputtext';
+import ProgressBar from 'primevue/progressbar';
+import Skeleton from 'primevue/skeleton';
 import AdminSections from './AdminSections.vue';
 import AdminShell from './AdminShell.vue';
-import AdminTabLinks from './AdminTabLinks.vue';
 import FormFields from './FormFields.vue';
+import ReadingNav from './ui/reading/ReadingNav.vue';
+import { sourceTint } from './ui/reading/sources';
 import { ApiError, api, report, toast } from './api';
 import { text, type FieldDef } from './fields';
 import { SOURCE_NAMES } from './reading';
@@ -71,10 +77,15 @@ const EMAIL_FIELDS: FieldDef[] = [
 ];
 // `fields`: the error-key prefixes each section owns, for its error dot.
 const SECTIONS = [
-  { id: 'profile', label: 'Profile', fields: ['field', 'keywords', 'area'] },
-  { id: 'sources', label: 'Sources', fields: ['sources'] },
-  { id: 'digest', label: 'Digest', fields: ['talked', 'inField', 'minScore', 'maxAiCalls', 'paused', 'email'] },
-  { id: 'room', label: 'Reading room', fields: ['roomAiCalls'] },
+  { id: 'profile', label: 'Profile', icon: 'pi-user', fields: ['field', 'keywords', 'area'] },
+  { id: 'sources', label: 'Sources', icon: 'pi-globe', fields: ['sources'] },
+  {
+    id: 'digest',
+    label: 'Digest',
+    icon: 'pi-sun',
+    fields: ['talked', 'inField', 'minScore', 'maxAiCalls', 'paused', 'email'],
+  },
+  { id: 'room', label: 'Reading room', icon: 'pi-book', fields: ['roomAiCalls'] },
 ];
 
 function loaded(s: { prefs: ReadingPrefs; keys: Keys; roomUse: number }) {
@@ -151,107 +162,347 @@ onMounted(async () => {
 <template>
   <AdminShell :ctx="ctx" active="reading/settings" title="Reading settings" :dirty="dirty">
     <template #actions>
-      <button type="button" class="adm-btn adm-btn-primary" :disabled="saving || !prefs" @click="save">Save</button>
+      <Button icon="pi pi-check" label="Save" :disabled="saving || !prefs" @click="save" />
     </template>
-    <AdminTabLinks
-      label="Reading"
-      :tabs="[
-        { href: `${base}/reading`, label: 'Today' },
-        { href: `${base}/reading/library`, label: 'Library' },
-        { href: `${base}/reading/notebooks`, label: 'Notebooks' },
-        { href: `${base}/reading/vault`, label: 'Vault' },
-        { href: `${base}/reading/settings`, label: 'Settings', current: true },
-      ]"
-    />
+    <ReadingNav :base="base" current="settings" />
 
-    <template v-if="prefs">
-      <p v-if="suggestError" class="adm-banner adm-banner-error" role="alert">
-        {{ suggestError }}
-        <a v-if="/ is not set/.test(suggestError)" :href="`${base}/ai#keys`">Add the key</a>
+    <div v-if="!prefs" class="card" aria-hidden="true">
+      <Skeleton v-for="n in 5" :key="n" height="2.5rem" class="mb-3" />
+    </div>
+    <template v-else>
+      <p v-if="suggestError" class="rd-banner is-error" role="alert">
+        <i class="pi pi-exclamation-circle" aria-hidden="true" />
+        <span
+          >{{ suggestError }} <a v-if="/ is not set/.test(suggestError)" :href="`${base}/ai#keys`">Add the key</a></span
+        >
       </p>
-      <p v-else-if="filled" class="adm-banner" role="status">Suggested from your profile. Review and save.</p>
+      <p v-else-if="filled" class="rd-banner" role="status">
+        <i class="pi pi-sparkles" aria-hidden="true" /> Suggested from your profile. Review and save.
+      </p>
       <AdminSections v-model="section" :sections="SECTIONS" :errors="errors">
         <template #profile>
-          <div class="adm-actions">
-            <button type="button" class="adm-btn adm-btn-small" :disabled="suggesting" @click="suggest">
-              {{ suggesting ? 'Suggesting…' : 'Suggest from my profile' }}
-            </button>
-          </div>
-          <FormFields :fields="PROFILE_FIELDS" :model="prefs" :errors="errors" />
+          <section class="card" aria-labelledby="rs-profile">
+            <div class="card-head">
+              <div class="rs-head">
+                <span class="rs-icon tint-primary" aria-hidden="true"><i class="pi pi-user" /></span>
+                <h2 id="rs-profile" class="card-title">Profile</h2>
+              </div>
+              <Button
+                size="small"
+                severity="secondary"
+                outlined
+                icon="pi pi-sparkles"
+                :label="suggesting ? 'Suggesting…' : 'Suggest from my profile'"
+                :disabled="suggesting"
+                @click="suggest"
+              />
+            </div>
+            <FormFields :fields="PROFILE_FIELDS" :model="prefs" :errors="errors" />
+          </section>
         </template>
 
         <template #sources>
-          <div class="adm-form">
-            <div v-for="s in SOURCES" :key="s.id" class="adm-field">
-              <label class="adm-check">
-                <input v-model="prefs.sources[s.id].on" type="checkbox" />
-                {{ SOURCE_NAMES[s.id] }}
-              </label>
-              <small v-if="s.note">{{ s.note }}</small>
-              <FormFields v-if="s.fields" :fields="s.fields" :model="prefs" :errors="errors" />
-              <template v-if="s.id === 'openalex'">
-                <small v-if="keys && !keys.OPENALEX_API_KEY" role="note"
-                  >Without a key, OpenAlex shares a small daily budget with everyone on this server's address, which can
-                  run out on Vercel. Add OPENALEX_API_KEY under <a :href="`${base}/ai#keys`">Integrations</a>.</small
-                >
-                <ul v-if="prefs.sources.openalex.topics.length" class="adm-rows" aria-label="OpenAlex topics">
-                  <li v-for="t in prefs.sources.openalex.topics" :key="t.id">
-                    <span class="adm-row-main">{{ t.name }}</span>
-                    <span class="adm-row-action">
-                      <button
-                        type="button"
-                        class="adm-btn adm-btn-small"
-                        :aria-label="`Remove ${t.name}`"
-                        @click="removeTopic(t.id)"
-                      >
-                        Remove
-                      </button>
-                    </span>
-                  </li>
-                </ul>
-                <form class="adm-field" @submit.prevent="findTopics">
-                  <label for="adm-topic-q">Find an OpenAlex topic</label>
-                  <div class="adm-list-row">
-                    <input id="adm-topic-q" v-model="query" type="search" />
-                    <button type="submit" class="adm-btn" :disabled="finding || query.trim().length < 2">Find</button>
-                  </div>
-                </form>
-                <span v-if="topicError" class="adm-err" role="alert">{{ topicError }}</span>
-                <p v-else-if="found && !found.length" class="adm-muted" role="status">No topic matches.</p>
-                <div v-else-if="found" class="adm-actions" role="group" aria-label="Matching topics">
-                  <button
-                    v-for="t in found"
-                    :key="t.id"
-                    type="button"
-                    class="adm-btn adm-btn-small"
-                    :disabled="prefs.sources.openalex.topics.some((x) => x.id === t.id)"
-                    @click="addTopic(t)"
-                  >
-                    + {{ t.name }} ({{ t.level }})
-                  </button>
-                </div>
-              </template>
+          <section class="card card-flush" aria-labelledby="rs-sources">
+            <div class="card-head">
+              <div class="rs-head">
+                <span class="rs-icon tint-info" aria-hidden="true"><i class="pi pi-globe" /></span>
+                <h2 id="rs-sources" class="card-title">Sources</h2>
+              </div>
             </div>
-          </div>
+            <div class="rs-sources">
+              <div v-for="s in SOURCES" :key="s.id" class="rs-source" :class="{ 'is-on': prefs.sources[s.id].on }">
+                <div class="rs-source-head">
+                  <Checkbox v-model="prefs.sources[s.id].on" binary :input-id="`rs-src-${s.id}`" />
+                  <span :class="['rs-source-badge', `tint-${sourceTint(s.id)}`]" aria-hidden="true">{{
+                    SOURCE_NAMES[s.id].slice(0, 1)
+                  }}</span>
+                  <label :for="`rs-src-${s.id}`" class="rs-source-name">{{ SOURCE_NAMES[s.id] }}</label>
+                </div>
+                <small v-if="s.note" class="rs-note">{{ s.note }}</small>
+                <div v-if="s.fields || s.id === 'openalex'" class="rs-source-body">
+                  <FormFields v-if="s.fields" :fields="s.fields" :model="prefs" :errors="errors" />
+                  <template v-if="s.id === 'openalex'">
+                    <small v-if="keys && !keys.OPENALEX_API_KEY" class="rs-note is-warn" role="note"
+                      ><i class="pi pi-info-circle" aria-hidden="true" /> Without a key, OpenAlex shares a small daily
+                      budget with everyone on this server's address, which can run out on Vercel. Add OPENALEX_API_KEY
+                      under <a :href="`${base}/ai#keys`">Integrations</a>.</small
+                    >
+                    <ul v-if="prefs.sources.openalex.topics.length" class="rs-topics" aria-label="OpenAlex topics">
+                      <li v-for="t in prefs.sources.openalex.topics" :key="t.id" class="chip chip-primary">
+                        {{ t.name }}
+                        <button type="button" :aria-label="`Remove ${t.name}`" @click="removeTopic(t.id)">
+                          <i class="pi pi-times" aria-hidden="true" />
+                        </button>
+                      </li>
+                    </ul>
+                    <form class="rs-find" @submit.prevent="findTopics">
+                      <label for="adm-topic-q">Find an OpenAlex topic</label>
+                      <div class="rs-find-row">
+                        <InputText id="adm-topic-q" v-model="query" type="search" />
+                        <Button
+                          type="submit"
+                          icon="pi pi-search"
+                          label="Find"
+                          severity="secondary"
+                          outlined
+                          :disabled="finding || query.trim().length < 2"
+                        />
+                      </div>
+                    </form>
+                    <span v-if="topicError" class="rs-error" role="alert">{{ topicError }}</span>
+                    <p v-else-if="found && !found.length" class="rs-note" role="status">No topic matches.</p>
+                    <div v-else-if="found" class="rs-found" role="group" aria-label="Matching topics">
+                      <Button
+                        v-for="t in found"
+                        :key="t.id"
+                        size="small"
+                        severity="secondary"
+                        outlined
+                        :label="`+ ${t.name} (${t.level})`"
+                        :disabled="prefs.sources.openalex.topics.some((x) => x.id === t.id)"
+                        @click="addTopic(t)"
+                      />
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </section>
         </template>
 
         <template #digest>
-          <FormFields :fields="DIGEST_FIELDS" :model="prefs" :errors="errors" />
-          <h2 class="adm-subhead">Email</h2>
-          <p v-if="keys && !keys.RESEND_API_KEY" class="adm-banner" role="note">
-            <span
-              >Email uses the Resend key from
-              <a :href="`${base}/career/settings#notifications`">Job search settings</a>.</span
-            >
-          </p>
-          <FormFields :fields="EMAIL_FIELDS" :model="prefs" :errors="errors" />
+          <section class="card" aria-labelledby="rs-digest">
+            <div class="card-head">
+              <div class="rs-head">
+                <span class="rs-icon tint-warning" aria-hidden="true"><i class="pi pi-sun" /></span>
+                <h2 id="rs-digest" class="card-title">Digest</h2>
+              </div>
+            </div>
+            <FormFields :fields="DIGEST_FIELDS" :model="prefs" :errors="errors" />
+          </section>
+          <section class="card" aria-labelledby="rs-email">
+            <div class="card-head">
+              <div class="rs-head">
+                <span class="rs-icon tint-pink" aria-hidden="true"><i class="pi pi-envelope" /></span>
+                <h2 id="rs-email" class="card-title">Email</h2>
+              </div>
+            </div>
+            <p v-if="keys && !keys.RESEND_API_KEY" class="rd-banner rs-in-card" role="note">
+              <i class="pi pi-info-circle" aria-hidden="true" />
+              <span
+                >Email uses the Resend key from
+                <a :href="`${base}/career/settings#notifications`">Job search settings</a>.</span
+              >
+            </p>
+            <FormFields :fields="EMAIL_FIELDS" :model="prefs" :errors="errors" />
+          </section>
         </template>
 
         <template #room>
-          <FormFields :fields="ROOM_FIELDS" :model="prefs" :errors="errors" />
-          <p class="adm-muted">Today: {{ roomUse.today }} of {{ roomUse.cap }}</p>
+          <section class="card" aria-labelledby="rs-room">
+            <div class="card-head">
+              <div class="rs-head">
+                <span class="rs-icon tint-success" aria-hidden="true"><i class="pi pi-book" /></span>
+                <h2 id="rs-room" class="card-title">Reading room</h2>
+              </div>
+            </div>
+            <FormFields :fields="ROOM_FIELDS" :model="prefs" :errors="errors" />
+            <div class="rs-use">
+              <p>Today: {{ roomUse.today }} of {{ roomUse.cap }}</p>
+              <ProgressBar
+                :value="roomUse.cap ? Math.min(100, Math.round((roomUse.today / roomUse.cap) * 100)) : 0"
+                :show-value="false"
+                class="rs-use-bar"
+                aria-hidden="true"
+              />
+            </div>
+          </section>
         </template>
       </AdminSections>
     </template>
   </AdminShell>
 </template>
+
+<style scoped>
+.rd-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  margin: 0 0 1rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.625rem;
+  background: color-mix(in srgb, var(--p-primary-color) 8%, var(--app-card));
+  color: var(--app-heading);
+  font-size: 0.875rem;
+}
+.rd-banner > .pi {
+  margin-block-start: 0.2rem;
+  color: var(--p-primary-color);
+}
+.rd-banner.is-error {
+  background: color-mix(in srgb, var(--c-danger) 8%, var(--app-card));
+  box-shadow: inset 4px 0 0 var(--c-danger);
+}
+.rd-banner.is-error > .pi {
+  color: var(--c-danger);
+}
+.rs-in-card {
+  margin-block-end: 1.25rem;
+}
+.rs-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rs-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+.rs-sources {
+  display: grid;
+}
+.rs-source {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+}
+.rs-source + .rs-source {
+  border-top: 1px solid var(--app-border);
+}
+.rs-source-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.rs-source-badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+.rs-source-name {
+  flex: 1;
+  color: var(--app-heading);
+  font-weight: 600;
+  cursor: pointer;
+}
+.rs-source:not(.is-on) .rs-source-name {
+  color: var(--app-body);
+  font-weight: 500;
+}
+.rs-note {
+  display: block;
+  color: var(--app-muted);
+  font-size: 0.8125rem;
+}
+.rs-source > .rs-note {
+  padding-inline-start: 5.125rem;
+}
+.rs-note.is-warn {
+  padding: 0.625rem 0.75rem;
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--c-warning) 10%, transparent);
+  color: var(--app-body);
+}
+.rs-source-body {
+  display: grid;
+  gap: 0.75rem;
+  padding-inline-start: 5.125rem;
+}
+.rs-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rs-topics .chip {
+  padding-inline-end: 0.25rem;
+  white-space: normal;
+}
+.rs-topics button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+.rs-topics button:hover {
+  background: color-mix(in srgb, var(--p-primary-color) 18%, transparent);
+}
+.rs-topics button:focus-visible {
+  outline: 2px solid var(--p-primary-color);
+}
+.rs-topics button .pi {
+  font-size: 0.625rem;
+}
+.rs-find {
+  display: grid;
+  gap: 0.375rem;
+  max-width: 32rem;
+}
+.rs-find label {
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.rs-find-row {
+  display: flex;
+  gap: 0.5rem;
+}
+.rs-find-row :deep(.p-inputtext) {
+  flex: 1;
+  min-width: 0;
+}
+.rs-error {
+  color: var(--c-danger);
+  font-size: 0.8125rem;
+}
+.rs-found {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+.rs-use {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 24rem;
+  margin-block-start: 1.25rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--app-canvas);
+}
+.rs-use p {
+  margin: 0;
+  color: var(--app-heading);
+  font-size: 0.875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.rs-use-bar {
+  height: 0.375rem;
+}
+@media (max-width: 575.98px) {
+  .rs-source {
+    padding-inline: 1rem;
+  }
+  .rs-source-body,
+  .rs-source > .rs-note {
+    padding-inline-start: 0;
+  }
+}
+</style>

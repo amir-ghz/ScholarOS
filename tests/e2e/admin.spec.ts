@@ -266,7 +266,7 @@ test('phone layout: the nav collapses behind a Menu button', async ({ page }) =>
   await signIn(page);
   await page.goto(`${ADMIN}/cv`);
   const nav = page.getByRole('navigation', { name: 'Admin' });
-  const menu = page.locator('.adm-side').getByRole('button', { name: 'Menu' });
+  const menu = page.locator('.layout-topbar').getByRole('button', { name: 'Menu', exact: true });
   await expect(menu).toHaveAttribute('aria-expanded', 'false');
   await expect(nav.getByRole('link', { name: 'Posts' })).toBeHidden();
   await menu.click();
@@ -296,7 +296,7 @@ test('reading is hidden outside Postgres mode', async ({ page }) => {
   await signIn(page);
   await page.goto(`${ADMIN}/cv`);
   await expect(page.getByRole('navigation', { name: 'Admin' }).getByRole('link', { name: 'CV' })).toBeVisible();
-  await expect(page.locator('.adm-nav-label', { hasText: 'Reading' })).toHaveCount(0);
+  await expect(page.locator('.layout-menu-heading', { hasText: 'Reading' })).toHaveCount(0);
   expect((await page.goto(`${ADMIN}/reading`))!.status()).toBe(404);
   expect((await page.goto(`${ADMIN}/reading/settings`))!.status()).toBe(404);
   for (const path of ['library', 'notebooks', 'papers/1', 'vault', 'vault/graph', 'vault/1'])
